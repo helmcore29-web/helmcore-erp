@@ -24,7 +24,7 @@
       padding: 16px;
       line-height: 1.45;
     }
-    .container { max-width: 940px; margin: 0 auto; }
+    .container { max-width: 980px; margin: 0 auto; }
     .hidden { display: none !important; }
     .card {
       background: var(--card);
@@ -100,7 +100,28 @@
     .low-stock { color: var(--red); font-weight: 700; }
     .ok-stock { color: var(--green); font-weight: 600; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    @media (max-width: 720px) {
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    }
+    .stat-box {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .stat-box .val { font-size: 1.35rem; font-weight: 800; margin-top: 4px; }
+    .stat-box.highlight { border-color: var(--accent); }
+    .stat-box.highlight .val { color: var(--accent); }
+    .calc-preview {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #0f172a;
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      font-size: 0.92rem;
+    }
     .msg { margin-top: 10px; font-size: 0.9rem; color: var(--green); }
     .err { margin-top: 10px; font-size: 0.9rem; color: var(--red); }
   </style>
@@ -130,14 +151,16 @@
       </div>
 
       <div class="tabs">
-        <button class="tab active" onclick="showTab('tabWork', this)">⏱️ Zápis zo stavby</button>
+        <button class="tab active" onclick="showTab('tabWork', this)">⏱️ Dochádzka & stavba</button>
+        <button class="tab" onclick="showTab('tabMyPay', this)">💰 Moje vyúčtovanie</button>
         <button class="tab" onclick="showTab('tabStock', this)">📦 Sklad materiálu</button>
-        <button class="tab admin-only hidden" onclick="showTab('tabProjects', this)">🏗️ Stavby & prehľad</button>
+        <button class="tab admin-only hidden" onclick="showTab('tabPeople', this)">👷 Ľudia & FA</button>
+        <button class="tab admin-only hidden" onclick="showTab('tabProjects', this)">🏗️ Stavby</button>
       </div>
 
-      <!-- ZÁLOŽKA 1: DOCHÁDZKA A SPOTREBA MATERIÁLU -->
+      <!-- ZÁLOŽKA 1: DOCHÁDZKA (PRÍCHOD, ODCHOD, OBED) A MATERIÁL -->
       <div id="tabWork" class="card">
-        <h2>Zápis odpracovaných hodín a spotreby materiálu</h2>
+        <h2>Zápis dochádzky (príchod / odchod / obed)</h2>
         <div class="grid-2">
           <div>
             <label>Stavba / Zákazka</label>
@@ -148,20 +171,40 @@
             <input type="date" id="workDate" />
           </div>
         </div>
-        <div class="grid-2">
+
+        <div class="grid-3">
           <div>
-            <label>Odpracované hodiny (napr. 8.5)</label>
-            <input type="number" step="0.5" id="workHours" placeholder="8" />
+            <label>Príchod</label>
+            <input type="time" id="workArrival" value="07:00" oninput="recalcPreview()" />
           </div>
           <div>
-            <label>Popis vykonanej práce</label>
-            <input type="text" id="workNote" placeholder="Napr. Zapojenie rozvádzača R1, trasy EPS..." />
+            <label>Odchod</label>
+            <input type="time" id="workDeparture" value="15:30" oninput="recalcPreview()" />
+          </div>
+          <div>
+            <label>Obed / prestávka</label>
+            <select id="workLunch" onchange="recalcPreview()">
+              <option value="0">Bez obeda (0 min)</option>
+              <option value="30" selected>Áno – 30 min</option>
+              <option value="45">Áno – 45 min</option>
+              <option value="60">Áno – 60 min</option>
+            </select>
           </div>
         </div>
-        <button onclick="saveWorkLog()">Uložiť odpracované hodiny</button>
+
+        <div>
+          <label>Popis vykonanej práce</label>
+          <input type="text" id="workNote" placeholder="Napr. Zapojenie rozvádzača R1, ťahanie trás EPS..." />
+        </div>
+
+        <div id="calcPreview" class="calc-preview">
+          Čistý odpracovaný čas dnes: <strong>8.00 h</strong> (po odpočítaní obeda)
+        </div>
+
+        <button onclick="saveWorkLog()">Uložiť dochádzku dňa</button>
         <div id="workMsg" class="msg"></div>
 
-        <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;" />
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 22px 0;" />
         <h2>Odpis spotrebovaného materiálu zo skladu</h2>
         <div class="grid-2">
           <div>
@@ -177,7 +220,53 @@
         <div id="matMsg" class="msg"></div>
       </div>
 
-      <!-- ZÁLOŽKA 2: SKLAD MATERIÁLU -->
+      <!-- ZÁLOŽKA 2: MOJE MESAČNÉ VYÚČTOVANIE NA FAKTÚRU (VIDÍ KAŽDÝ SÁM ZA SEBA) -->
+      <div id="tabMyPay" class="card hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+          <h2 style="margin:0;">Mesačné vyúčtovanie na faktúru (FA)</h2>
+          <div style="min-width: 180px;">
+            <input type="month" id="myMonth" onchange="renderMyPayout()" />
+          </div>
+        </div>
+
+        <div class="grid-4" style="margin-bottom: 18px;">
+          <div class="stat-box">
+            <div class="muted">Odpracované dni</div>
+            <div class="val" id="myDays">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="muted">Čisté hodiny spolu</div>
+            <div class="val" id="myHours">0.00 h</div>
+          </div>
+          <div class="stat-box">
+            <div class="muted">Moja sadzba</div>
+            <div class="val" id="myRate">0.00 €/h</div>
+          </div>
+          <div class="stat-box highlight">
+            <div class="muted">Suma na faktúru (bez DPH)</div>
+            <div class="val" id="myTotal">0.00 €</div>
+          </div>
+        </div>
+
+        <h2>Denný rozpis dochádzky za vybraný mesiac</h2>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Dátum</th>
+                <th>Stavba</th>
+                <th>Príchod – Odchod</th>
+                <th>Obed</th>
+                <th>Čisté hod.</th>
+                <th>Zárobok dňa</th>
+              </tr>
+            </thead>
+            <tbody id="myLogsTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ZÁLOŽKA 3: SKLAD MATERIÁLU -->
       <div id="tabStock" class="card hidden">
         <h2>Stav skladu materiálu</h2>
         <div class="admin-only hidden" style="margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
@@ -229,7 +318,52 @@
         </div>
       </div>
 
-      <!-- ZÁLOŽKA 3: STAVBY A PREHĽAD (LEN KONATEĽ) -->
+      <!-- ZÁLOŽKA 4: ĽUDIA, SADZBY A SÚHRN NA FAKTÚRY (LEN KONATEĽ) -->
+      <div id="tabPeople" class="card hidden admin-only">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+          <h2 style="margin:0;">Prehľad ľudí a sumy na faktúry (FA) za mesiac</h2>
+          <div style="min-width: 180px;">
+            <input type="month" id="adminMonth" onchange="renderAdminPayouts()" />
+          </div>
+        </div>
+
+        <div style="overflow-x: auto; margin-bottom: 22px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Pracovník</th>
+                <th>Rola</th>
+                <th>Sadzba (€/h)</th>
+                <th>Odprac. dni</th>
+                <th>Čisté hodiny</th>
+                <th>Výsledná suma na FA</th>
+                <th>Nastavenia</th>
+              </tr>
+            </thead>
+            <tbody id="peoplePayoutTable"></tbody>
+          </table>
+        </div>
+
+        <h2>Všetky zápisy dochádzky za vybraný mesiac</h2>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Dátum</th>
+                <th>Pracovník</th>
+                <th>Stavba</th>
+                <th>Čas (Obed)</th>
+                <th>Čisté hod.</th>
+                <th>Poznámka</th>
+                <th>Akcie</th>
+              </tr>
+            </thead>
+            <tbody id="adminLogsTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ZÁLOŽKA 5: STAVBY A ZÁKAZKY (LEN KONATEĽ) -->
       <div id="tabProjects" class="card hidden admin-only">
         <h2>Zákazky / Stavby HelMcore s.r.o.</h2>
         <div class="grid-2">
@@ -262,23 +396,6 @@
             <tbody id="projectsTable"></tbody>
           </table>
         </div>
-
-        <h2 style="margin-top: 24px;">Posledné zápisy hodín</h2>
-        <div style="overflow-x: auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>Dátum</th>
-                <th>Pracovník</th>
-                <th>Zákazka</th>
-                <th>Hodiny</th>
-                <th>Poznámka</th>
-                <th>Akcie</th>
-              </tr>
-            </thead>
-            <tbody id="logsTable"></tbody>
-          </table>
-        </div>
       </div>
     </div>
   </div>
@@ -291,8 +408,34 @@
     let currentUser = null;
     let currentProfile = null;
     let stockCache = [];
+    let profilesCache = [];
 
-    document.getElementById("workDate").valueAsDate = new Date();
+    const now = new Date();
+    document.getElementById("workDate").valueAsDate = now;
+    const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    document.getElementById("myMonth").value = currentYM;
+    document.getElementById("adminMonth").value = currentYM;
+
+    function calcNetHours(arrival, departure, lunchMin) {
+      if (!arrival || !departure) return 0;
+      const [ah, am] = arrival.split(":").map(Number);
+      const [dh, dm] = departure.split(":").map(Number);
+      let diffMin = (dh * 60 + dm) - (ah * 60 + am);
+      if (diffMin <= 0) return 0;
+      diffMin -= Number(lunchMin || 0);
+      return diffMin > 0 ? Math.round((diffMin / 60) * 100) / 100 : 0;
+    }
+
+    function recalcPreview() {
+      const arr = document.getElementById("workArrival").value;
+      const dep = document.getElementById("workDeparture").value;
+      const lunch = Number(document.getElementById("workLunch").value || 0);
+      const net = calcNetHours(arr, dep, lunch);
+      const rate = Number(currentProfile?.hourly_rate || 0);
+      const earnText = rate > 0 ? ` • Zárobok dňa: <strong>${(net * rate).toFixed(2)} €</strong>` : "";
+      document.getElementById("calcPreview").innerHTML =
+        `Čistý odpracovaný čas dnes: <strong>${net.toFixed(2)} h</strong> (odpočítaná prestávka ${lunch} min)${earnText}`;
+    }
 
     async function init() {
       const { data: { session } } = await db.auth.getSession();
@@ -324,7 +467,7 @@
 
     async function loadProfileAndData() {
       const { data: prof } = await db.from("profiles").select("*").eq("id", currentUser.id).single();
-      currentProfile = prof || { full_name: currentUser.email, role: "worker" };
+      currentProfile = prof || { full_name: currentUser.email, role: "worker", hourly_rate: 0 };
 
       document.getElementById("loginBox").classList.add("hidden");
       document.getElementById("appBox").classList.remove("hidden");
@@ -337,7 +480,16 @@
         document.querySelectorAll(".admin-only").forEach(el => el.classList.remove("hidden"));
       }
 
+      recalcPreview();
       await refreshAll();
+    }
+
+    function getMonthBounds(ym) {
+      const [y, m] = ym.split("-").map(Number);
+      const start = `${ym}-01`;
+      const lastDay = new Date(y, m, 0).getDate();
+      const end = `${ym}-${String(lastDay).padStart(2, "0")}`;
+      return { start, end };
     }
 
     async function refreshAll() {
@@ -378,37 +530,149 @@
         </tr>`;
       }).join("");
 
+      await renderMyPayout();
       if (isAdmin) {
-        const { data: logs } = await db.from("work_logs")
-          .select("id, work_date, hours, note, profiles(full_name), projects(name)")
-          .order("work_date", { ascending: false })
-          .limit(30);
-        document.getElementById("logsTable").innerHTML = (logs || []).map(l => `<tr>
+        await renderAdminPayouts();
+      }
+    }
+
+    async function renderMyPayout() {
+      const ym = document.getElementById("myMonth").value || currentYM;
+      const { start, end } = getMonthBounds(ym);
+
+      const { data: myProf } = await db.from("profiles").select("*").eq("id", currentUser.id).single();
+      if (myProf) currentProfile = myProf;
+      const rate = Number(currentProfile.hourly_rate || 0);
+
+      const { data: logs } = await db.from("work_logs")
+        .select("id, work_date, arrival_time, departure_time, lunch_minutes, hours, note, projects(name)")
+        .eq("user_id", currentUser.id)
+        .gte("work_date", start)
+        .lte("work_date", end)
+        .order("work_date", { ascending: false });
+
+      const list = logs || [];
+      const uniqueDays = new Set(list.map(l => l.work_date)).size;
+      const totalHours = list.reduce((s, l) => s + Number(l.hours || 0), 0);
+      const totalEur = totalHours * rate;
+
+      document.getElementById("myDays").textContent = uniqueDays;
+      document.getElementById("myHours").textContent = `${totalHours.toFixed(2)} h`;
+      document.getElementById("myRate").textContent = `${rate.toFixed(2)} €/h`;
+      document.getElementById("myTotal").textContent = `${totalEur.toFixed(2)} €`;
+
+      document.getElementById("myLogsTable").innerHTML = list.map(l => {
+        const timeStr = l.arrival_time && l.departure_time
+          ? `${l.arrival_time.slice(0,5)} – ${l.departure_time.slice(0,5)}`
+          : "-";
+        const dayEur = (Number(l.hours || 0) * rate).toFixed(2);
+        return `<tr>
+          <td>${l.work_date}</td>
+          <td>${l.projects?.name || "-"}</td>
+          <td>${timeStr}</td>
+          <td>${l.lunch_minutes || 0} min</td>
+          <td><strong>${Number(l.hours).toFixed(2)} h</strong></td>
+          <td><strong>${dayEur} €</strong></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="6" class="muted">Žiadne zápisy v tomto mesiaci.</td></tr>`;
+    }
+
+    async function renderAdminPayouts() {
+      const ym = document.getElementById("adminMonth").value || currentYM;
+      const { start, end } = getMonthBounds(ym);
+
+      const { data: profs } = await db.from("profiles").select("*").order("full_name");
+      profilesCache = profs || [];
+
+      const { data: logs } = await db.from("work_logs")
+        .select("id, user_id, work_date, arrival_time, departure_time, lunch_minutes, hours, note, profiles(full_name), projects(name)")
+        .gte("work_date", start)
+        .lte("work_date", end)
+        .order("work_date", { ascending: false });
+
+      const allLogs = logs || [];
+
+      document.getElementById("peoplePayoutTable").innerHTML = profilesCache.map(p => {
+        const pLogs = allLogs.filter(l => l.user_id === p.id);
+        const days = new Set(pLogs.map(l => l.work_date)).size;
+        const hrs = pLogs.reduce((s, l) => s + Number(l.hours || 0), 0);
+        const rate = Number(p.hourly_rate || 0);
+        const sum = hrs * rate;
+        return `<tr>
+          <td><strong>${p.full_name || "Bez mena"}</strong></td>
+          <td>${p.role === "admin" ? "Konateľ" : "Montér"}</td>
+          <td>${rate.toFixed(2)} €/h</td>
+          <td>${days}</td>
+          <td><strong>${hrs.toFixed(2)} h</strong></td>
+          <td style="color: var(--accent); font-weight: 800; font-size: 1rem;">${sum.toFixed(2)} €</td>
+          <td>
+            <button class="btn-sm btn-edit" onclick="editPerson('${p.id}')">✏️ Sadzba / Meno</button>
+          </td>
+        </tr>`;
+      }).join("");
+
+      document.getElementById("adminLogsTable").innerHTML = allLogs.map(l => {
+        const timeStr = l.arrival_time && l.departure_time
+          ? `${l.arrival_time.slice(0,5)}–${l.departure_time.slice(0,5)} (${l.lunch_minutes || 0}m)`
+          : "-";
+        return `<tr>
           <td>${l.work_date}</td>
           <td>${l.profiles?.full_name || "-"}</td>
           <td>${l.projects?.name || "-"}</td>
-          <td><strong>${l.hours} h</strong></td>
+          <td>${timeStr}</td>
+          <td><strong>${Number(l.hours).toFixed(2)} h</strong></td>
           <td>${l.note || ""}</td>
           <td><button class="btn-sm btn-del" onclick="deleteWorkLog('${l.id}')">🗑️</button></td>
-        </tr>`).join("");
-      }
+        </tr>`;
+      }).join("") || `<tr><td colspan="7" class="muted">Žiadne zápisy v tomto mesiaci.</td></tr>`;
+    }
+
+    async function editPerson(id) {
+      const p = profilesCache.find(x => x.id === id);
+      if (!p) return;
+
+      const newName = prompt("Meno a priezvisko pracovníka:", p.full_name || "");
+      if (newName === null) return;
+
+      const newRate = prompt(`Hodinová sadzba pre "${newName}" (€/h bez DPH na FA):`, p.hourly_rate || 0);
+      if (newRate === null) return;
+
+      const { error } = await db.from("profiles").update({
+        full_name: newName.trim() || p.full_name,
+        hourly_rate: Number(String(newRate).replace(",", ".")) || 0
+      }).eq("id", id);
+
+      if (error) return alert("Chyba pri ukladaní: " + error.message);
+      await refreshAll();
+      recalcPreview();
     }
 
     async function saveWorkLog() {
       const project_id = document.getElementById("workProject").value;
       const work_date = document.getElementById("workDate").value;
-      const hours = Number(document.getElementById("workHours").value);
+      const arrival_time = document.getElementById("workArrival").value;
+      const departure_time = document.getElementById("workDeparture").value;
+      const lunch_minutes = Number(document.getElementById("workLunch").value || 0);
+      const hours = calcNetHours(arrival_time, departure_time, lunch_minutes);
       const note = document.getElementById("workNote").value.trim();
-      if (!project_id || !hours) return alert("Vyber stavbu a zadaj hodiny.");
+
+      if (!project_id) return alert("Najprv vyber stavbu (ak žiadna nie je, vytvor ju v záložke Stavby).");
+      if (hours <= 0) return alert("Skontroluj čas príchodu, odchodu a obed – čisté hodiny musia byť viac ako 0.");
 
       const { error } = await db.from("work_logs").insert({
-        user_id: currentUser.id, project_id, work_date, hours, note
+        user_id: currentUser.id,
+        project_id,
+        work_date,
+        arrival_time,
+        departure_time,
+        lunch_minutes,
+        hours,
+        note
       });
       if (error) return alert("Chyba: " + error.message);
 
-      document.getElementById("workHours").value = "";
       document.getElementById("workNote").value = "";
-      document.getElementById("workMsg").textContent = "✅ Odpracované hodiny uložené.";
+      document.getElementById("workMsg").textContent = `✅ Dochádzka uložená (${hours.toFixed(2)} h čistého času).`;
       await refreshAll();
     }
 
@@ -458,8 +722,8 @@
       if (newPrice === null) return;
 
       const { error } = await db.from("inventory").update({
-        quantity: Number(newQty.replace(",", ".")) || 0,
-        purchase_price_excl_vat: Number(newPrice.replace(",", ".")) || 0
+        quantity: Number(String(newQty).replace(",", ".")) || 0,
+        purchase_price_excl_vat: Number(String(newPrice).replace(",", ".")) || 0
       }).eq("id", id);
 
       if (error) return alert("Chyba pri úprave: " + error.message);
@@ -499,14 +763,14 @@
     }
 
     async function deleteWorkLog(id) {
-      if (!confirm("Vymazať tento zápis odpracovaných hodín?")) return;
+      if (!confirm("Vymazať tento zápis dochádzky?")) return;
       const { error } = await db.from("work_logs").delete().eq("id", id);
       if (error) return alert("Chyba: " + error.message);
       await refreshAll();
     }
 
     function showTab(id, btn) {
-      ["tabWork", "tabStock", "tabProjects"].forEach(t => document.getElementById(t).classList.add("hidden"));
+      ["tabWork", "tabMyPay", "tabStock", "tabPeople", "tabProjects"].forEach(t => document.getElementById(t).classList.add("hidden"));
       document.getElementById(id).classList.remove("hidden");
       document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
