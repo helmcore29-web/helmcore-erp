@@ -62,6 +62,7 @@
     }
     button:hover { opacity: 0.9; }
     button.secondary { background: #334155; color: var(--text); width: auto; padding: 7px 12px; margin-top: 0; }
+    button.outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
     .btn-sm {
       width: auto;
       margin-top: 0;
@@ -122,6 +123,13 @@
       border-radius: 6px;
       font-size: 0.92rem;
     }
+    .invite-box {
+      background: #0f172a;
+      border: 1px dashed var(--accent);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
     .msg { margin-top: 10px; font-size: 0.9rem; color: var(--green); }
     .err { margin-top: 10px; font-size: 0.9rem; color: var(--red); }
   </style>
@@ -129,14 +137,21 @@
 <body>
   <div class="container">
     <!-- PRIHLASOVACIA OBRAZOVKA -->
-    <div id="loginBox" class="card" style="max-width: 420px; margin: 40px auto;">
+    <div id="loginBox" class="card" style="max-width: 430px; margin: 40px auto;">
       <h1><span>HelMcore</span> s.r.o.</h1>
       <p class="muted" style="margin-bottom: 14px;">Interný firemný portál (IČO: 57475393)</p>
+
       <label>Prihlasovací e-mail</label>
-      <input type="email" id="email" placeholder="meno@helmcore.sk" />
-      <label>Heslo</label>
+      <input type="email" id="email" placeholder="meno@gmail.com" />
+
+      <label>Heslo (ak už máš nastavené)</label>
       <input type="password" id="password" placeholder="••••••••" />
-      <button onclick="login()">Prihlásiť sa</button>
+      <button onclick="login()">Prihlásiť sa heslom</button>
+
+      <div style="text-align:center; margin: 14px 0 4px;" class="muted">— alebo prvé prihlásenie cez e-mail —</div>
+      <button class="outline" style="margin-top:6px;" onclick="sendSelfMagicLink()">✉️ Poslať prihlasovací link na e-mail</button>
+
+      <div id="loginMsg" class="msg"></div>
       <div id="loginErr" class="err"></div>
     </div>
 
@@ -147,7 +162,10 @@
           <h1><span>HelMcore</span> s.r.o. – ERP</h1>
           <div class="muted" id="userBadge">Načítavam profil...</div>
         </div>
-        <button class="secondary" onclick="logout()">Odhlásiť</button>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="setMyPassword()">🔑 Nastaviť heslo</button>
+          <button class="secondary" onclick="logout()">Odhlásiť</button>
+        </div>
       </div>
 
       <div class="tabs">
@@ -158,7 +176,7 @@
         <button class="tab admin-only hidden" onclick="showTab('tabProjects', this)">🏗️ Stavby</button>
       </div>
 
-      <!-- ZÁLOŽKA 1: DOCHÁDZKA (PRÍCHOD, ODCHOD, OBED) A MATERIÁL -->
+      <!-- ZÁLOŽKA 1: DOCHÁDZKA A MATERIÁL -->
       <div id="tabWork" class="card">
         <h2>Zápis dochádzky (príchod / odchod / obed)</h2>
         <div class="grid-2">
@@ -220,7 +238,7 @@
         <div id="matMsg" class="msg"></div>
       </div>
 
-      <!-- ZÁLOŽKA 2: MOJE MESAČNÉ VYÚČTOVANIE NA FAKTÚRU (VIDÍ KAŽDÝ SÁM ZA SEBA) -->
+      <!-- ZÁLOŽKA 2: MOJE MESAČNÉ VYÚČTOVANIE NA FAKTÚRU -->
       <div id="tabMyPay" class="card hidden">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
           <h2 style="margin:0;">Mesačné vyúčtovanie na faktúru (FA)</h2>
@@ -318,10 +336,49 @@
         </div>
       </div>
 
-      <!-- ZÁLOŽKA 4: ĽUDIA, SADZBY A SÚHRN NA FAKTÚRY (LEN KONATEĽ) -->
+      <!-- ZÁLOŽKA 4: ĽUDIA, POZVÁNKY E-MAILOM A FAKTÚRY (LEN KONATEĽ) -->
       <div id="tabPeople" class="card hidden admin-only">
+        <div class="invite-box">
+          <h2>➕ Pozvať nového montéra e-mailom (Magic Link)</h2>
+          <p class="muted" style="margin-bottom: 10px;">
+            Zadaj údaje montéra. Na jeho e-mail príde prihlasovací link – po kliknutí je rovno v apke ako Montér s touto sadzbou.
+          </p>
+          <div class="grid-3">
+            <div>
+              <label>Meno a priezvisko montéra</label>
+              <input type="text" id="invName" placeholder="Napr. Jozef Novák" />
+            </div>
+            <div>
+              <label>E-mail montéra</label>
+              <input type="email" id="invEmail" placeholder="monter@gmail.com" />
+            </div>
+            <div>
+              <label>Hodinová sadzba (€/h bez DPH)</label>
+              <input type="number" step="0.5" id="invRate" placeholder="Napr. 14" />
+            </div>
+          </div>
+          <button onclick="inviteWorkerByEmail()">✉️ Odoslať pozvánku s linkom na e-mail</button>
+          <div id="invMsg" class="msg"></div>
+          <div id="invErr" class="err"></div>
+
+          <div id="pendingInvitesWrap" style="margin-top: 14px;" class="hidden">
+            <div class="muted" style="margin-bottom: 4px;">Čakajúce odoslané pozvánky (ešte neklikli na e-mail):</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Meno</th>
+                  <th>E-mail</th>
+                  <th>Sadzba</th>
+                  <th>Akcia</th>
+                </tr>
+              </thead>
+              <tbody id="invitesTable"></tbody>
+            </table>
+          </div>
+        </div>
+
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
-          <h2 style="margin:0;">Prehľad ľudí a sumy na faktúry (FA) za mesiac</h2>
+          <h2 style="margin:0;">Prehľad aktívnych ľudí a sumy na faktúry (FA)</h2>
           <div style="min-width: 180px;">
             <input type="month" id="adminMonth" onchange="renderAdminPayouts()" />
           </div>
@@ -403,6 +460,7 @@
   <script>
     const SUPABASE_URL = "https://jjelnisgvhvrpmjwrkvg.supabase.co";
     const SUPABASE_KEY = "sb_publishable_0icBVPmygHxCt7MZLvZMWQ_vxXLVtxT";
+    const APP_URL = "https://helmcore29-web.github.io/helmcore-erp/";
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUser = null;
@@ -443,26 +501,129 @@
         currentUser = session.user;
         await loadProfileAndData();
       }
+      db.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_IN" && session && !currentUser) {
+          currentUser = session.user;
+          await loadProfileAndData();
+        }
+      });
     }
 
     async function login() {
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
-      const errEl = document.getElementById("loginErr");
-      errEl.textContent = "";
+      document.getElementById("loginErr").textContent = "";
+      document.getElementById("loginMsg").textContent = "";
+
+      if (!email || !password) {
+        document.getElementById("loginErr").textContent = "Zadaj e-mail aj heslo (alebo klikni na odoslanie linku nižšie).";
+        return;
+      }
 
       const { data, error } = await db.auth.signInWithPassword({ email, password });
       if (error) {
-        errEl.textContent = "Nesprávny e-mail alebo heslo.";
+        document.getElementById("loginErr").textContent = "Nesprávny e-mail alebo heslo.";
         return;
       }
       currentUser = data.user;
       await loadProfileAndData();
     }
 
+    async function sendSelfMagicLink() {
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      const errEl = document.getElementById("loginErr");
+      const msgEl = document.getElementById("loginMsg");
+      errEl.textContent = "";
+      msgEl.textContent = "";
+
+      if (!email) {
+        errEl.textContent = "Najprv zadaj svoj e-mail do políčka vyššie.";
+        return;
+      }
+
+      const { data: allowed, error: rpcErr } = await db.rpc("can_request_magic_link", { check_email: email });
+      if (rpcErr || !allowed) {
+        errEl.textContent = "Tento e-mail zatiaľ nie je pridaný konateľom HelMcore s.r.o.";
+        return;
+      }
+
+      const { error } = await db.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: APP_URL }
+      });
+
+      if (error) {
+        errEl.textContent = "Chyba pri odosielaní linku: " + error.message;
+        return;
+      }
+      msgEl.textContent = "✅ Prihlasovací link bol odoslaný na tvoj e-mail. Otvor e-mail a klikni naň.";
+    }
+
+    async function setMyPassword() {
+      const newPassword = prompt("Zadaj nové heslo pre rýchle prihlasovanie (min. 6 znakov):");
+      if (!newPassword) return;
+      if (newPassword.length < 6) return alert("Heslo musí mať aspoň 6 znakov.");
+
+      const { error } = await db.auth.updateUser({ password: newPassword });
+      if (error) return alert("Chyba pri zmene hesla: " + error.message);
+      alert("✅ Heslo uložené. Nabudúce sa už môžeš prihlásiť priamo e-mailom a týmto heslom.");
+    }
+
+    async function inviteWorkerByEmail() {
+      const full_name = document.getElementById("invName").value.trim();
+      const email = document.getElementById("invEmail").value.trim().toLowerCase();
+      const hourly_rate = Number(String(document.getElementById("invRate").value).replace(",", ".")) || 0;
+      const msgEl = document.getElementById("invMsg");
+      const errEl = document.getElementById("invErr");
+      msgEl.textContent = "";
+      errEl.textContent = "";
+
+      if (!full_name || !email) {
+        errEl.textContent = "Vyplň meno montéra aj jeho e-mail.";
+        return;
+      }
+
+      // 1. Uložíme schválenú pozvánku s menom a sadzbou do DB
+      const { error: dbErr } = await db.from("worker_invites").upsert({
+        email, full_name, hourly_rate
+      });
+      if (dbErr) {
+        errEl.textContent = "Chyba pri ukladaní pozvánky: " + dbErr.message;
+        return;
+      }
+
+      // 2. Odošleme prihlasovací Magic Link cez čistého klienta (aby neodhlásilo Konateľa)
+      const inviteClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+      });
+
+      const { error: otpErr } = await inviteClient.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: APP_URL }
+      });
+
+      if (otpErr) {
+        errEl.textContent = "Pozvánka uložená, ale e-mail sa nepodarilo odoslať (skontroluj limit e-mailov): " + otpErr.message;
+        await renderAdminPayouts();
+        return;
+      }
+
+      document.getElementById("invName").value = "";
+      document.getElementById("invEmail").value = "";
+      document.getElementById("invRate").value = "";
+      msgEl.textContent = `✅ Prihlasovací link bol odoslaný na ${email}. Keď naň montér klikne, prihlási ho do apky.`;
+      await renderAdminPayouts();
+    }
+
+    async function deleteInvite(email) {
+      if (!confirm(`Zrušiť čakajúcu pozvánku pre ${email}?`)) return;
+      await db.from("worker_invites").delete().eq("email", email);
+      await renderAdminPayouts();
+    }
+
     async function logout() {
       await db.auth.signOut();
-      location.reload();
+      location.href = APP_URL;
     }
 
     async function loadProfileAndData() {
@@ -580,6 +741,22 @@
     async function renderAdminPayouts() {
       const ym = document.getElementById("adminMonth").value || currentYM;
       const { start, end } = getMonthBounds(ym);
+
+      // Načítanie čakajúcich pozvánok
+      const { data: invites } = await db.from("worker_invites").select("*").order("created_at", { ascending: false });
+      const invList = invites || [];
+      const invWrap = document.getElementById("pendingInvitesWrap");
+      if (invList.length > 0) {
+        invWrap.classList.remove("hidden");
+        document.getElementById("invitesTable").innerHTML = invList.map(inv => `<tr>
+          <td><strong>${inv.full_name}</strong></td>
+          <td>${inv.email}</td>
+          <td>${Number(inv.hourly_rate).toFixed(2)} €/h</td>
+          <td><button class="btn-sm btn-del" onclick="deleteInvite('${inv.email}')">🗑️ Zrušiť</button></td>
+        </tr>`).join("");
+      } else {
+        invWrap.classList.add("hidden");
+      }
 
       const { data: profs } = await db.from("profiles").select("*").order("full_name");
       profilesCache = profs || [];
