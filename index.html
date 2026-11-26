@@ -130,6 +130,13 @@
       padding: 15px;
       margin-bottom: 20px;
     }
+    .share-card {
+      margin-top: 14px;
+      background: #1e293b;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      padding: 12px;
+    }
     .msg { margin-top: 10px; font-size: 0.9rem; color: var(--green); }
     .err { margin-top: 10px; font-size: 0.9rem; color: var(--red); }
   </style>
@@ -144,12 +151,9 @@
       <label>Prihlasovací e-mail</label>
       <input type="email" id="email" placeholder="meno@gmail.com" />
 
-      <label>Heslo (ak už máš nastavené)</label>
+      <label>Heslo</label>
       <input type="password" id="password" placeholder="••••••••" />
-      <button onclick="login()">Prihlásiť sa heslom</button>
-
-      <div style="text-align:center; margin: 14px 0 4px;" class="muted">— alebo prvé prihlásenie cez e-mail —</div>
-      <button class="outline" style="margin-top:6px;" onclick="sendSelfMagicLink()">✉️ Poslať prihlasovací link na e-mail</button>
+      <button onclick="login()">Prihlásiť sa</button>
 
       <div id="loginMsg" class="msg"></div>
       <div id="loginErr" class="err"></div>
@@ -163,7 +167,7 @@
           <div class="muted" id="userBadge">Načítavam profil...</div>
         </div>
         <div style="display:flex; gap:8px;">
-          <button class="secondary" onclick="setMyPassword()">🔑 Nastaviť heslo</button>
+          <button class="secondary" onclick="setMyPassword()">🔑 Zmeniť heslo</button>
           <button class="secondary" onclick="logout()">Odhlásiť</button>
         </div>
       </div>
@@ -336,44 +340,47 @@
         </div>
       </div>
 
-      <!-- ZÁLOŽKA 4: ĽUDIA, POZVÁNKY E-MAILOM A FAKTÚRY (LEN KONATEĽ) -->
+      <!-- ZÁLOŽKA 4: ĽUDIA, PRIDANIE MONTÉRA S HESLOM A FAKTÚRY (LEN KONATEĽ) -->
       <div id="tabPeople" class="card hidden admin-only">
         <div class="invite-box">
-          <h2>➕ Pozvať nového montéra e-mailom (Magic Link)</h2>
+          <h2>➕ Pridať nového montéra (okamžitý prístup s heslom)</h2>
           <p class="muted" style="margin-bottom: 10px;">
-            Zadaj údaje montéra. Na jeho e-mail príde prihlasovací link – po kliknutí je rovno v apke ako Montér s touto sadzbou.
+            Vyplň meno, e-mail, hodinovú sadzbu a štartovacie heslo. Účet je hneď aktívny – údaje mu pošleš jedným klikom cez WhatsApp, SMS alebo zo svojho e-mailu.
           </p>
-          <div class="grid-3">
+          <div class="grid-2">
             <div>
               <label>Meno a priezvisko montéra</label>
-              <input type="text" id="invName" placeholder="Napr. Jozef Novák" />
+              <input type="text" id="invName" placeholder="Napr. Jozef Novák" autocomplete="off" />
             </div>
             <div>
-              <label>E-mail montéra</label>
-              <input type="email" id="invEmail" placeholder="monter@gmail.com" />
+              <label>E-mail montéra (prihlasovacie meno)</label>
+              <input type="email" id="invEmail" placeholder="monter@gmail.com" autocomplete="new-password" />
             </div>
+          </div>
+          <div class="grid-2">
             <div>
               <label>Hodinová sadzba (€/h bez DPH)</label>
               <input type="number" step="0.5" id="invRate" placeholder="Napr. 14" />
             </div>
+            <div>
+              <label>Štartovacie heslo (min. 6 znakov)</label>
+              <input type="text" id="invPassword" value="Helmcore2026" autocomplete="off" />
+            </div>
           </div>
-          <button onclick="inviteWorkerByEmail()">✉️ Odoslať pozvánku s linkom na e-mail</button>
+
+          <button onclick="createWorkerWithPassword()">⚡ Vytvoriť účet montéra s heslom (hneď aktívny)</button>
+
           <div id="invMsg" class="msg"></div>
           <div id="invErr" class="err"></div>
 
-          <div id="pendingInvitesWrap" style="margin-top: 14px;" class="hidden">
-            <div class="muted" style="margin-bottom: 4px;">Čakajúce odoslané pozvánky (ešte neklikli na e-mail):</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Meno</th>
-                  <th>E-mail</th>
-                  <th>Sadzba</th>
-                  <th>Akcia</th>
-                </tr>
-              </thead>
-              <tbody id="invitesTable"></tbody>
-            </table>
+          <!-- KARTA NA RÝCHLE ODOSLANIE ÚDAJOV CEZ WHATSAPP / EMAIL -->
+          <div id="shareBox" class="share-card hidden">
+            <div style="font-weight:700; color:var(--green); margin-bottom:6px;">✅ Účet montéra je vytvorený a pripravený! Pošli mu prístup:</div>
+            <textarea id="shareText" rows="5" readonly style="font-size:0.86rem; margin-bottom:8px;"></textarea>
+            <div class="grid-2">
+              <button style="margin-top:0;" onclick="copyCredentials()">📋 Kopírovať pre WhatsApp / SMS</button>
+              <button class="outline" style="margin-top:0;" onclick="openMailClient()">✉️ Otvoriť a poslať z môjho e-mailu</button>
+            </div>
           </div>
         </div>
 
@@ -467,6 +474,7 @@
     let currentProfile = null;
     let stockCache = [];
     let profilesCache = [];
+    let lastCreatedWorker = { email: "", name: "", password: "" };
 
     const now = new Date();
     document.getElementById("workDate").valueAsDate = now;
@@ -501,12 +509,6 @@
         currentUser = session.user;
         await loadProfileAndData();
       }
-      db.auth.onAuthStateChange(async (event, session) => {
-        if (event === "SIGNED_IN" && session && !currentUser) {
-          currentUser = session.user;
-          await loadProfileAndData();
-        }
-      });
     }
 
     async function login() {
@@ -516,109 +518,117 @@
       document.getElementById("loginMsg").textContent = "";
 
       if (!email || !password) {
-        document.getElementById("loginErr").textContent = "Zadaj e-mail aj heslo (alebo klikni na odoslanie linku nižšie).";
+        document.getElementById("loginErr").textContent = "Zadaj prihlasovací e-mail aj heslo.";
         return;
       }
 
       const { data, error } = await db.auth.signInWithPassword({ email, password });
       if (error) {
-        document.getElementById("loginErr").textContent = "Nesprávny e-mail alebo heslo.";
+        document.getElementById("loginErr").textContent = "Nesprávny e-mail alebo heslo (prípadne ešte nie je vypnuté Confirm email v Supabase).";
         return;
       }
       currentUser = data.user;
       await loadProfileAndData();
     }
 
-    async function sendSelfMagicLink() {
-      const email = document.getElementById("email").value.trim().toLowerCase();
-      const errEl = document.getElementById("loginErr");
-      const msgEl = document.getElementById("loginMsg");
-      errEl.textContent = "";
-      msgEl.textContent = "";
-
-      if (!email) {
-        errEl.textContent = "Najprv zadaj svoj e-mail do políčka vyššie.";
-        return;
-      }
-
-      const { data: allowed, error: rpcErr } = await db.rpc("can_request_magic_link", { check_email: email });
-      if (rpcErr || !allowed) {
-        errEl.textContent = "Tento e-mail zatiaľ nie je pridaný konateľom HelMcore s.r.o.";
-        return;
-      }
-
-      const { error } = await db.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: APP_URL }
-      });
-
-      if (error) {
-        errEl.textContent = "Chyba pri odosielaní linku: " + error.message;
-        return;
-      }
-      msgEl.textContent = "✅ Prihlasovací link bol odoslaný na tvoj e-mail. Otvor e-mail a klikni naň.";
-    }
-
     async function setMyPassword() {
-      const newPassword = prompt("Zadaj nové heslo pre rýchle prihlasovanie (min. 6 znakov):");
+      const newPassword = prompt("Zadaj nové heslo pre prihlasovanie (min. 6 znakov):");
       if (!newPassword) return;
       if (newPassword.length < 6) return alert("Heslo musí mať aspoň 6 znakov.");
 
       const { error } = await db.auth.updateUser({ password: newPassword });
       if (error) return alert("Chyba pri zmene hesla: " + error.message);
-      alert("✅ Heslo uložené. Nabudúce sa už môžeš prihlásiť priamo e-mailom a týmto heslom.");
+      alert("✅ Heslo bolo úspešne zmenené.");
     }
 
-    async function inviteWorkerByEmail() {
+    async function createWorkerWithPassword() {
       const full_name = document.getElementById("invName").value.trim();
       const email = document.getElementById("invEmail").value.trim().toLowerCase();
       const hourly_rate = Number(String(document.getElementById("invRate").value).replace(",", ".")) || 0;
+      const password = document.getElementById("invPassword").value.trim();
+
       const msgEl = document.getElementById("invMsg");
       const errEl = document.getElementById("invErr");
+      const shareBox = document.getElementById("shareBox");
       msgEl.textContent = "";
       errEl.textContent = "";
+      shareBox.classList.add("hidden");
 
-      if (!full_name || !email) {
-        errEl.textContent = "Vyplň meno montéra aj jeho e-mail.";
+      if (!full_name || !email || !password) {
+        errEl.textContent = "Vyplň meno, e-mail aj štartovacie heslo.";
+        return;
+      }
+      if (password.length < 6) {
+        errEl.textContent = "Heslo musí mať aspoň 6 znakov.";
+        return;
+      }
+      if (email === currentUser.email?.toLowerCase()) {
+        errEl.textContent = "Toto je tvoj vlastný konateľský e-mail. Zadaj e-mail montéra.";
         return;
       }
 
-      // 1. Uložíme schválenú pozvánku s menom a sadzbou do DB
-      const { error: dbErr } = await db.from("worker_invites").upsert({
+      // 1. Zapíšeme údaje do worker_invites, aby trigger automaticky nastavil meno a sadzbu
+      const { error: invErr } = await db.from("worker_invites").upsert({
         email, full_name, hourly_rate
       });
-      if (dbErr) {
-        errEl.textContent = "Chyba pri ukladaní pozvánky: " + dbErr.message;
+      if (invErr) {
+        errEl.textContent = "Chyba pri príprave profilu: " + invErr.message;
         return;
       }
 
-      // 2. Odošleme prihlasovací Magic Link cez čistého klienta (aby neodhlásilo Konateľa)
-      const inviteClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      // 2. Vytvoríme účet s heslom cez izolovaného klienta (aby neodhlásilo Konateľa)
+      const tempClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
       });
 
-      const { error: otpErr } = await inviteClient.auth.signInWithOtp({
+      const { data, error: signUpErr } = await tempClient.auth.signUp({
         email,
-        options: { emailRedirectTo: APP_URL }
+        password
       });
 
-      if (otpErr) {
-        errEl.textContent = "Pozvánka uložená, ale e-mail sa nepodarilo odoslať (skontroluj limit e-mailov): " + otpErr.message;
-        await renderAdminPayouts();
+      if (signUpErr) {
+        errEl.textContent = "Chyba pri vytváraní účtu: " + signUpErr.message;
         return;
       }
+
+      // Poistka: ak už profil existoval, aktualizujeme mu meno a sadzbu priamo
+      if (data?.user?.id) {
+        await db.from("profiles").upsert({
+          id: data.user.id,
+          full_name,
+          role: "worker",
+          hourly_rate
+        });
+      }
+
+      lastCreatedWorker = { email, name: full_name, password };
+      const inviteMessage =
+`Ahoj ${full_name},
+tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavieb):
+🔗 Link: ${APP_URL}
+📧 E-mail: ${email}
+🔑 Heslo: ${password}`;
+
+      document.getElementById("shareText").value = inviteMessage;
+      shareBox.classList.remove("hidden");
 
       document.getElementById("invName").value = "";
       document.getElementById("invEmail").value = "";
       document.getElementById("invRate").value = "";
-      msgEl.textContent = `✅ Prihlasovací link bol odoslaný na ${email}. Keď naň montér klikne, prihlási ho do apky.`;
+
       await renderAdminPayouts();
     }
 
-    async function deleteInvite(email) {
-      if (!confirm(`Zrušiť čakajúcu pozvánku pre ${email}?`)) return;
-      await db.from("worker_invites").delete().eq("email", email);
-      await renderAdminPayouts();
+    function copyCredentials() {
+      const txt = document.getElementById("shareText").value;
+      navigator.clipboard.writeText(txt);
+      alert("✅ Skopírované! Teraz to len vlož (Ctrl+V / Podržať a Prilepiť) montérovi do WhatsAppu alebo SMS.");
+    }
+
+    function openMailClient() {
+      const subject = encodeURIComponent("Prístup do aplikácie HelMcore s.r.o.");
+      const body = encodeURIComponent(document.getElementById("shareText").value);
+      window.location.href = `mailto:${lastCreatedWorker.email}?subject=${subject}&body=${body}`;
     }
 
     async function logout() {
@@ -741,22 +751,6 @@
     async function renderAdminPayouts() {
       const ym = document.getElementById("adminMonth").value || currentYM;
       const { start, end } = getMonthBounds(ym);
-
-      // Načítanie čakajúcich pozvánok
-      const { data: invites } = await db.from("worker_invites").select("*").order("created_at", { ascending: false });
-      const invList = invites || [];
-      const invWrap = document.getElementById("pendingInvitesWrap");
-      if (invList.length > 0) {
-        invWrap.classList.remove("hidden");
-        document.getElementById("invitesTable").innerHTML = invList.map(inv => `<tr>
-          <td><strong>${inv.full_name}</strong></td>
-          <td>${inv.email}</td>
-          <td>${Number(inv.hourly_rate).toFixed(2)} €/h</td>
-          <td><button class="btn-sm btn-del" onclick="deleteInvite('${inv.email}')">🗑️ Zrušiť</button></td>
-        </tr>`).join("");
-      } else {
-        invWrap.classList.add("hidden");
-      }
 
       const { data: profs } = await db.from("profiles").select("*").order("full_name");
       profilesCache = profs || [];
