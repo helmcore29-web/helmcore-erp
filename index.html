@@ -15,6 +15,7 @@
       --accent: #f59e0b;
       --green: #10b981;
       --red: #ef4444;
+      --blue: #38bdf8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -24,7 +25,7 @@
       padding: 16px;
       line-height: 1.45;
     }
-    .container { max-width: 980px; margin: 0 auto; }
+    .container { max-width: 1080px; margin: 0 auto; }
     .hidden { display: none !important; }
     .card {
       background: var(--card);
@@ -70,8 +71,10 @@
       font-size: 0.8rem;
       border-radius: 6px;
       margin-right: 4px;
+      margin-bottom: 3px;
     }
     .btn-edit { background: #334155; color: var(--text); }
+    .btn-convert { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
     .btn-del { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
     .topbar {
       display: flex;
@@ -95,11 +98,23 @@
       font-weight: 600;
     }
     .tab.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
-    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-top: 8px; }
     th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     th { color: var(--muted); font-weight: 600; }
     .low-stock { color: var(--red); font-weight: 700; }
     .ok-stock { color: var(--green); font-weight: 600; }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      background: #334155;
+      color: var(--text);
+    }
+    .badge-won { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+    .badge-sent { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+    .badge-lost { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
@@ -112,7 +127,7 @@
       border-radius: 10px;
       padding: 14px;
     }
-    .stat-box .val { font-size: 1.35rem; font-weight: 800; margin-top: 4px; }
+    .stat-box .val { font-size: 1.3rem; font-weight: 800; margin-top: 4px; }
     .stat-box.highlight { border-color: var(--accent); }
     .stat-box.highlight .val { color: var(--accent); }
     .calc-preview {
@@ -181,7 +196,7 @@
     <div id="appBox" class="hidden">
       <div class="topbar">
         <div>
-          <h1><span>HelMcore</span> s.r.o. – ERP</h1>
+          <h1><span>HelMcore</span> s.r.o. – ERP & CRM</h1>
           <div class="muted" id="userBadge">Načítavam profil...</div>
         </div>
         <div style="display:flex; gap:8px;">
@@ -195,7 +210,8 @@
         <button class="tab" onclick="showTab('tabMyPay', this)">💰 Moje vyúčtovanie</button>
         <button class="tab" onclick="showTab('tabStock', this)">📦 Sklad materiálu</button>
         <button class="tab admin-only hidden" onclick="showTab('tabPeople', this)">👷 Ľudia & FA</button>
-        <button class="tab admin-only hidden" onclick="showTab('tabProjects', this)">🏗️ Stavby</button>
+        <button class="tab admin-only hidden" onclick="showTab('tabProjects', this)">🏗️ Stavby & Marža</button>
+        <button class="tab admin-only hidden" onclick="showTab('tabCRM', this)">💼 Obchod / CRM</button>
       </div>
 
       <!-- ZÁLOŽKA 1: DOCHÁDZKA A MATERIÁL -->
@@ -445,10 +461,10 @@
         </div>
       </div>
 
-      <!-- ZÁLOŽKA 5: STAVBY A ZÁKAZKY (LEN KONATEĽ) -->
+      <!-- ZÁLOŽKA 5: STAVBY & AUTOMATICKÁ MARŽA (LEN KONATEĽ) -->
       <div id="tabProjects" class="card hidden admin-only">
         <h2>Zákazky / Stavby HelMcore s.r.o.</h2>
-        <div class="grid-2">
+        <div class="grid-3">
           <div>
             <label>Názov zákazky</label>
             <input type="text" id="newProjName" placeholder="Napr. Elektroinštalácia hala Košice" />
@@ -457,21 +473,24 @@
             <label>Lokalita</label>
             <input type="text" id="newProjLoc" placeholder="Košice" />
           </div>
-        </div>
-        <div>
-          <label>Rozpočet zákazky (€ bez DPH)</label>
-          <input type="number" step="1" id="newProjBudget" placeholder="12500" />
+          <div>
+            <label>Dohodnutá cena / Rozpočet (€ bez DPH)</label>
+            <input type="number" step="1" id="newProjBudget" placeholder="12500" />
+          </div>
         </div>
         <button onclick="addProject()">+ Vytvoriť zákazku</button>
 
-        <h2 style="margin-top: 24px;">Aktívne stavby</h2>
+        <h2 style="margin-top: 24px;">Ekonomika a čistá marža aktívnych stavieb (bez DPH)</h2>
+        <p class="muted" style="margin-bottom: 8px;">Automaticky odpočítava všetky zapísané hodiny montérov (podľa ich sadzieb) aj materiál odpísaný zo skladu.</p>
         <div style="overflow-x: auto;">
           <table>
             <thead>
               <tr>
                 <th>Zákazka</th>
-                <th>Lokalita</th>
-                <th>Rozpočet bez DPH</th>
+                <th>Rozpočet</th>
+                <th>Náklad práca</th>
+                <th>Náklad materiál</th>
+                <th>Čistý zisk (Marža)</th>
                 <th>Akcie</th>
               </tr>
             </thead>
@@ -479,10 +498,102 @@
           </table>
         </div>
       </div>
+
+      <!-- ZÁLOŽKA 6: OBCHOD / CRM – DOPYTY A CENOVÉ PONUKY (LEN KONATEĽ) -->
+      <div id="tabCRM" class="card hidden admin-only">
+        <h2>💼 Nový dopyt / Cenová ponuka (CRM HelMcore s.r.o.)</h2>
+        <div class="grid-3">
+          <div>
+            <label>Klient / Stavebná firma</label>
+            <input type="text" id="crmClient" placeholder="Napr. Metrostav / Ján Kováč" />
+          </div>
+          <div>
+            <label>Telefón / E-mail</label>
+            <input type="text" id="crmContact" placeholder="09xx xxx xxx / mail@firma.sk" />
+          </div>
+          <div>
+            <label>Lokalita stavby</label>
+            <input type="text" id="crmLoc" placeholder="Košice / Prešov..." />
+          </div>
+        </div>
+
+        <div class="grid-4">
+          <div>
+            <label>Typ prác</label>
+            <select id="crmType">
+              <option value="Silnoprúd / Kompletné elektro">Silnoprúd / Kompletné elektro</option>
+              <option value="Fotovoltika (FTV)">Fotovoltika (FTV)</option>
+              <option value="Bleskozvod / HVI">Bleskozvod / HVI</option>
+              <option value="Výroba rozvádzačov">Výroba rozvádzačov</option>
+              <option value="Slaboprúd (EPS/EZS/CCTV/Optika)">Slaboprúd (EPS/EZS/CCTV/Optika)</option>
+              <option value="Smart (AMPIO / DALI)">Smart (AMPIO / DALI)</option>
+              <option value="Revízia (OPAOS) / Prípojka">Revízia (OPAOS) / Prípojka</option>
+            </select>
+          </div>
+          <div>
+            <label>Suma CP (€ bez DPH)</label>
+            <input type="number" step="1" id="crmAmount" placeholder="Napr. 8500" />
+          </div>
+          <div>
+            <label>Stav obchodu</label>
+            <select id="crmStatus">
+              <option value="Nový dopyt">Nový dopyt</option>
+              <option value="Obhliadka">Obhliadka</option>
+              <option value="Odoslaná CP">Odoslaná CP</option>
+              <option value="Schválené">Schválené</option>
+              <option value="Zamietnuté">Zamietnuté</option>
+            </select>
+          </div>
+          <div>
+            <label>Pripomenúť dňa (Follow-up)</label>
+            <input type="date" id="crmFollowup" />
+          </div>
+        </div>
+
+        <div>
+          <label>Poznámka / Zdroj (napr. CRZ subdodávka, Web, odporúčanie...)</label>
+          <input type="text" id="crmNotes" placeholder="Napr. Poslaný výkaz výmer, zavolať stavbyvedúcemu v piatok..." />
+        </div>
+
+        <button onclick="addCrmLead()">+ Uložiť dopyt do CRM</button>
+
+        <div class="grid-3" style="margin-top: 22px; margin-bottom: 14px;">
+          <div class="stat-box">
+            <div class="muted">Rozpracované ponuky</div>
+            <div class="val" id="crmOpenCount">0</div>
+          </div>
+          <div class="stat-box highlight">
+            <div class="muted">V hre (odoslané CP bez DPH)</div>
+            <div class="val" id="crmPipelineSum">0.00 €</div>
+          </div>
+          <div class="stat-box">
+            <div class="muted">Vyhraté zákazky (Schválené)</div>
+            <div class="val" style="color:var(--green);" id="crmWonSum">0.00 €</div>
+          </div>
+        </div>
+
+        <h2>Prehľad všetkých dopytov a cenových ponúk</h2>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Klient & Kontakt</th>
+                <th>Lokalita & Typ</th>
+                <th>Suma CP bez DPH</th>
+                <th>Stav</th>
+                <th>Pripomienka</th>
+                <th>Poznámka</th>
+                <th>Akcie</th>
+              </tr>
+            </thead>
+            <tbody id="crmTable"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- MODÁLNE OKNO PRE KONATEĽA NA ÚPRAVU DOCHÁDZKY (DÁTUM, ČASY, OBED, STAVBA) -->
+  <!-- MODÁLNE OKNO PRE KONATEĽA NA ÚPRAVU DOCHÁDZKY -->
   <div id="editLogModal" class="modal-backdrop hidden">
     <div class="modal-card">
       <h2>✏️ Upraviť zápis dochádzky</h2>
@@ -547,6 +658,7 @@
     let profilesCache = [];
     let projectsCache = [];
     let adminLogsCache = [];
+    let crmCache = [];
     let editingLogId = null;
     let lastCreatedWorker = { email: "", name: "", password: "" };
 
@@ -687,7 +799,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       document.getElementById("invEmail").value = "";
       document.getElementById("invRate").value = "";
 
-      await renderAdminPayouts();
+      await refreshAll();
     }
 
     function copyCredentials() {
@@ -743,15 +855,6 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       document.getElementById("workProject").innerHTML = projOptions;
       document.getElementById("editLogProject").innerHTML = projOptions;
 
-      if (isAdmin) {
-        document.getElementById("projectsTable").innerHTML = projectsCache.map(p => `<tr>
-          <td><strong>${p.name}</strong></td>
-          <td>${p.location || "-"}</td>
-          <td>${Number(p.budget_excl_vat || 0).toFixed(2)} €</td>
-          <td><button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">🗑️ Zmazať</button></td>
-        </tr>`).join("");
-      }
-
       const { data: stock } = await db.from("inventory").select("*").order("name");
       stockCache = stock || [];
       const itemSel = document.getElementById("useItem");
@@ -777,7 +880,188 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       await renderMyPayout();
       if (isAdmin) {
         await renderAdminPayouts();
+        await renderProjectMargins();
+        await renderCRM();
       }
+    }
+
+    // VÝPOČET MARŽE PRE KAŽDÚ STAVBU (ROZPOČET - PRÁCA - MATERIÁL)
+    async function renderProjectMargins() {
+      const [{ data: allLogs }, { data: allMat }, { data: profs }] = await Promise.all([
+        db.from("work_logs").select("project_id, user_id, hours"),
+        db.from("material_usage").select("project_id, inventory_id, quantity_used"),
+        db.from("profiles").select("id, hourly_rate")
+      ]);
+
+      const rateMap = {};
+      (profs || []).forEach(p => { rateMap[p.id] = Number(p.hourly_rate || 0); });
+
+      const priceMap = {};
+      stockCache.forEach(s => { priceMap[s.id] = Number(s.purchase_price_excl_vat || 0); });
+
+      document.getElementById("projectsTable").innerHTML = projectsCache.map(p => {
+        const budget = Number(p.budget_excl_vat || 0);
+
+        const pLogs = (allLogs || []).filter(l => l.project_id === p.id);
+        const totalHrs = pLogs.reduce((s, l) => s + Number(l.hours || 0), 0);
+        const laborCost = pLogs.reduce((s, l) => s + Number(l.hours || 0) * (rateMap[l.user_id] || 0), 0);
+
+        const pMat = (allMat || []).filter(m => m.project_id === p.id);
+        const matCost = pMat.reduce((s, m) => s + Number(m.quantity_used || 0) * (priceMap[m.inventory_id] || 0), 0);
+
+        const profit = budget - laborCost - matCost;
+        const marginPct = budget > 0 ? ((profit / budget) * 100).toFixed(1) : "0.0";
+        const profitColor = profit >= 0 ? "var(--green)" : "var(--red)";
+
+        return `<tr>
+          <td><strong>${p.name}</strong><div class="muted">${p.location || "-"}</div></td>
+          <td><strong>${budget.toFixed(2)} €</strong></td>
+          <td>${laborCost.toFixed(2)} € <span class="muted">(${totalHrs.toFixed(1)} h)</span></td>
+          <td>${matCost.toFixed(2)} €</td>
+          <td style="color:${profitColor}; font-weight:800;">
+            ${profit.toFixed(2)} € <span class="muted">(${marginPct} %)</span>
+          </td>
+          <td>
+            <button class="btn-sm btn-edit" onclick="editProjectBudget('${p.id}')">✏️ Rozpočet</button>
+            <button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">🗑️</button>
+          </td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="6" class="muted">Žiadne aktívne stavby.</td></tr>`;
+    }
+
+    async function editProjectBudget(id) {
+      const p = projectsCache.find(x => x.id === id);
+      if (!p) return;
+      const newBudget = prompt(`Nový rozpočet (€ bez DPH) pre stavbu "${p.name}":`, p.budget_excl_vat || 0);
+      if (newBudget === null) return;
+      const { error } = await db.from("projects").update({
+        budget_excl_vat: Number(String(newBudget).replace(",", ".")) || 0
+      }).eq("id", id);
+      if (error) return alert("Chyba: " + error.message);
+      await refreshAll();
+    }
+
+    // OBCHOD / CRM FUNKCIE
+    async function renderCRM() {
+      const { data, error } = await db.from("crm_leads").select("*").order("created_at", { ascending: false });
+      if (error) return;
+      crmCache = data || [];
+
+      const openLeads = crmCache.filter(l => !["Schválené", "Zamietnuté"].includes(l.status));
+      const pipelineSum = openLeads.reduce((s, l) => s + Number(l.quote_amount_excl_vat || 0), 0);
+      const wonSum = crmCache.filter(l => l.status === "Schválené").reduce((s, l) => s + Number(l.quote_amount_excl_vat || 0), 0);
+
+      document.getElementById("crmOpenCount").textContent = openLeads.length;
+      document.getElementById("crmPipelineSum").textContent = `${pipelineSum.toFixed(2)} €`;
+      document.getElementById("crmWonSum").textContent = `${wonSum.toFixed(2)} €`;
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      document.getElementById("crmTable").innerHTML = crmCache.map(l => {
+        let badgeCls = "badge";
+        if (l.status === "Schválené") badgeCls += " badge-won";
+        else if (l.status === "Odoslaná CP") badgeCls += " badge-sent";
+        else if (l.status === "Zamietnuté") badgeCls += " badge-lost";
+
+        const isDue = l.next_followup && l.next_followup <= todayStr && !["Schválené", "Zamietnuté"].includes(l.status);
+        const followStr = l.next_followup
+          ? `<span style="${isDue ? 'color:var(--red);font-weight:700;' : ''}">${l.next_followup}${isDue ? ' 🔔' : ''}</span>`
+          : "-";
+
+        return `<tr>
+          <td><strong>${l.client_name}</strong><div class="muted">${l.contact_info || "-"}</div></td>
+          <td>${l.location || "-"}<div class="muted">${l.service_type || ""}</div></td>
+          <td><strong>${Number(l.quote_amount_excl_vat || 0).toFixed(2)} €</strong></td>
+          <td><span class="${badgeCls}">${l.status}</span></td>
+          <td>${followStr}</td>
+          <td>${l.notes || "-"}</td>
+          <td>
+            <button class="btn-sm btn-edit" onclick="editCrmLead('${l.id}')">✏️ Stav / Suma</button>
+            ${!l.converted_to_project ? `<button class="btn-sm btn-convert" onclick="convertLeadToProject('${l.id}')">🚀 Na stavbu</button>` : `<span class="muted">✔ V stavbách</span>`}
+            <button class="btn-sm btn-del" onclick="deleteCrmLead('${l.id}')">🗑️</button>
+          </td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="7" class="muted">Zatiaľ žiadne dopyty v CRM.</td></tr>`;
+    }
+
+    async function addCrmLead() {
+      const client_name = document.getElementById("crmClient").value.trim();
+      const contact_info = document.getElementById("crmContact").value.trim();
+      const location = document.getElementById("crmLoc").value.trim();
+      const service_type = document.getElementById("crmType").value;
+      const quote_amount_excl_vat = Number(String(document.getElementById("crmAmount").value).replace(",", ".")) || 0;
+      const status = document.getElementById("crmStatus").value;
+      const next_followup = document.getElementById("crmFollowup").value || null;
+      const notes = document.getElementById("crmNotes").value.trim();
+
+      if (!client_name) return alert("Zadaj aspoň meno klienta alebo názov firmy.");
+
+      const { error } = await db.from("crm_leads").insert({
+        client_name, contact_info, location, service_type, quote_amount_excl_vat, status, next_followup, notes
+      });
+      if (error) return alert("Chyba pri ukladaní do CRM: " + error.message);
+
+      document.getElementById("crmClient").value = "";
+      document.getElementById("crmContact").value = "";
+      document.getElementById("crmLoc").value = "";
+      document.getElementById("crmAmount").value = "";
+      document.getElementById("crmFollowup").value = "";
+      document.getElementById("crmNotes").value = "";
+      await renderCRM();
+    }
+
+    async function editCrmLead(id) {
+      const lead = crmCache.find(x => x.id === id);
+      if (!lead) return;
+
+      const newStatus = prompt(
+        `Nový stav pre "${lead.client_name}" (napíš: Nový dopyt / Obhliadka / Odoslaná CP / Schválené / Zamietnuté):`,
+        lead.status
+      );
+      if (newStatus === null) return;
+
+      const newAmt = prompt("Suma cenovej ponuky (€ bez DPH):", lead.quote_amount_excl_vat || 0);
+      if (newAmt === null) return;
+
+      const newNotes = prompt("Poznámka:", lead.notes || "");
+      if (newNotes === null) return;
+
+      const { error } = await db.from("crm_leads").update({
+        status: newStatus.trim() || lead.status,
+        quote_amount_excl_vat: Number(String(newAmt).replace(",", ".")) || 0,
+        notes: newNotes.trim()
+      }).eq("id", id);
+
+      if (error) return alert("Chyba: " + error.message);
+      await renderCRM();
+    }
+
+    async function convertLeadToProject(id) {
+      const lead = crmCache.find(x => x.id === id);
+      if (!lead) return;
+      if (!confirm(`Preklopiť dopyt "${lead.client_name}" na aktívnu stavbu s rozpočtom ${lead.quote_amount_excl_vat} € bez DPH?`)) return;
+
+      const projName = `${lead.client_name} – ${lead.service_type || "Elektro"}`;
+      const { error: pErr } = await db.from("projects").insert({
+        name: projName,
+        location: lead.location || "Košice",
+        budget_excl_vat: Number(lead.quote_amount_excl_vat || 0)
+      });
+      if (pErr) return alert("Chyba pri vytváraní stavby: " + pErr.message);
+
+      await db.from("crm_leads").update({
+        status: "Schválené",
+        converted_to_project: true
+      }).eq("id", id);
+
+      alert("✅ Zákazka bola vytvorená v Stavbách! Montéri na ňu už môžu zapisovať dochádzku a materiál.");
+      await refreshAll();
+    }
+
+    async function deleteCrmLead(id) {
+      if (!confirm("Vymazať tento záznam z CRM?")) return;
+      await db.from("crm_leads").delete().eq("id", id);
+      await renderCRM();
     }
 
     async function renderMyPayout() {
@@ -1093,7 +1377,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
     }
 
     function showTab(id, btn) {
-      ["tabWork", "tabMyPay", "tabStock", "tabPeople", "tabProjects"].forEach(t => document.getElementById(t).classList.add("hidden"));
+      ["tabWork", "tabMyPay", "tabStock", "tabPeople", "tabProjects", "tabCRM"].forEach(t => document.getElementById(t).classList.add("hidden"));
       document.getElementById(id).classList.remove("hidden");
       document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
