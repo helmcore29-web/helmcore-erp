@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>HelMcore s.r.o. | Interný systém</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/webp" href="logo.png.webp" />
+  <link rel="apple-touch-icon" href="logo.png.webp" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -15,7 +21,6 @@
       --accent: #f59e0b;
       --green: #10b981;
       --red: #ef4444;
-      --blue: #38bdf8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -34,7 +39,29 @@
       padding: 18px;
       margin-bottom: 16px;
     }
-    h1 { font-size: 1.3rem; margin-bottom: 4px; }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 46px;
+      height: 46px;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 4px;
+    }
+    .login-logo {
+      width: 76px;
+      height: 76px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 12px;
+      border-radius: 12px;
+    }
+    h1 { font-size: 1.25rem; margin-bottom: 2px; }
     h1 span { color: var(--accent); }
     h2 { font-size: 1.05rem; margin-bottom: 12px; color: var(--accent); }
     .muted { color: var(--muted); font-size: 0.85rem; }
@@ -80,6 +107,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
       gap: 10px;
       border-bottom: 1px solid var(--border);
       padding-bottom: 12px;
@@ -172,21 +200,34 @@
     }
     .msg { margin-top: 10px; font-size: 0.9rem; color: var(--green); }
     .err { margin-top: 10px; font-size: 0.9rem; color: var(--red); }
+
+    @media print {
+      body { background: #ffffff; color: #000000; padding: 0; }
+      .tabs, .invite-box, button, .no-print { display: none !important; }
+      .card, .stat-box { background: #ffffff; border: 1px solid #cccccc; color: #000000; }
+      th, td { border-bottom: 1px solid #dddddd; color: #000000; }
+      h1, h2, .val { color: #000000 !important; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- PRIHLASOVACIA OBRAZOVKA -->
-    <div id="loginBox" class="card" style="max-width: 430px; margin: 40px auto;">
+    <!-- PRIHLASOVACIA OBRAZOVKA S LOGOM -->
+    <div id="loginBox" class="card" style="max-width: 430px; margin: 40px auto; text-align: center;">
+      <img src="logo.png.webp" alt="HelMcore logo" class="login-logo" onerror="this.style.display='none'" />
       <h1><span>HelMcore</span> s.r.o.</h1>
       <p class="muted" style="margin-bottom: 14px;">Interný firemný portál (IČO: 57475393)</p>
 
-      <label>Prihlasovací e-mail</label>
-      <input type="email" id="email" placeholder="meno@gmail.com" />
+      <div style="text-align: left;">
+        <label>Prihlasovací e-mail</label>
+        <input type="email" id="email" placeholder="meno@gmail.com" />
 
-      <label>Heslo</label>
-      <input type="password" id="password" placeholder="••••••••" />
-      <button onclick="login()">Prihlásiť sa</button>
+        <label>Heslo</label>
+        <input type="password" id="password" placeholder="••••••••" />
+        <button onclick="login()">Prihlásiť sa</button>
+      </div>
+
+      <button id="installBtnLogin" class="outline hidden" onclick="installPWA()">📲 Pridať aplikáciu na plochu mobilu</button>
 
       <div id="loginMsg" class="msg"></div>
       <div id="loginErr" class="err"></div>
@@ -195,12 +236,17 @@
     <!-- HLAVNÁ APLIKÁCIA PO PRIHLÁSENÍ -->
     <div id="appBox" class="hidden">
       <div class="topbar">
-        <div>
-          <h1><span>HelMcore</span> s.r.o. – ERP & CRM</h1>
-          <div class="muted" id="userBadge">Načítavam profil...</div>
+        <div class="brand-row">
+          <img src="logo.png.webp" alt="HelMcore" class="brand-logo" onerror="this.style.display='none'" />
+          <div>
+            <h1><span>HelMcore</span> s.r.o. – ERP & CRM</h1>
+            <div class="muted" id="userBadge">Načítavam profil...</div>
+          </div>
         </div>
-        <div style="display:flex; gap:8px;">
-          <button class="secondary" onclick="setMyPassword()">🔑 Zmeniť heslo</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="installBtnTop" class="secondary hidden" style="border:1px solid var(--accent); color:var(--accent);" onclick="installPWA()">📲 Do mobilu</button>
+          <button class="secondary" onclick="window.print()">🖨️ PDF / Tlač</button>
+          <button class="secondary" onclick="setMyPassword()">🔑 Heslo</button>
           <button class="secondary" onclick="logout()">Odhlásiť</button>
         </div>
       </div>
@@ -262,7 +308,7 @@
         <div id="workMsg" class="msg"></div>
 
         <hr style="border: 0; border-top: 1px solid var(--border); margin: 22px 0;" />
-        <h2>Odpis spotrebovaného materiálu zo skladu</h2>
+        <h2>Odpis spotrebovaného materiálu zo skladu (automaticky odpočíta zo zásob)</h2>
         <div class="grid-2">
           <div>
             <label>Položka zo skladu</label>
@@ -326,7 +372,7 @@
       <!-- ZÁLOŽKA 3: SKLAD MATERIÁLU -->
       <div id="tabStock" class="card hidden">
         <h2>Stav skladu materiálu</h2>
-        <div class="admin-only hidden" style="margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+        <div class="admin-only hidden no-print" style="margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
           <div class="grid-2">
             <div>
               <label>Názov položky (kábel, istič, prvok...)</label>
@@ -364,10 +410,10 @@
             <thead>
               <tr>
                 <th>Položka</th>
-                <th>Zostatok</th>
+                <th>Zostatok na sklade</th>
                 <th class="admin-only hidden">Cena/j bez DPH</th>
-                <th class="admin-only hidden">Hodnota skladu</th>
-                <th class="admin-only hidden">Akcie</th>
+                <th class="admin-only hidden">Hodnota zásob</th>
+                <th class="admin-only hidden no-print">Akcie</th>
               </tr>
             </thead>
             <tbody id="stockTable"></tbody>
@@ -435,7 +481,7 @@
                 <th>Odprac. dni</th>
                 <th>Čisté hodiny</th>
                 <th>Výsledná suma na FA</th>
-                <th>Správa (iba Konateľ)</th>
+                <th class="no-print">Správa</th>
               </tr>
             </thead>
             <tbody id="peoplePayoutTable"></tbody>
@@ -453,7 +499,7 @@
                 <th>Čas (Obed)</th>
                 <th>Čisté hod.</th>
                 <th>Poznámka</th>
-                <th>Akcie (iba Konateľ)</th>
+                <th class="no-print">Akcie</th>
               </tr>
             </thead>
             <tbody id="adminLogsTable"></tbody>
@@ -463,25 +509,28 @@
 
       <!-- ZÁLOŽKA 5: STAVBY & AUTOMATICKÁ MARŽA (LEN KONATEĽ) -->
       <div id="tabProjects" class="card hidden admin-only">
-        <h2>Zákazky / Stavby HelMcore s.r.o.</h2>
-        <div class="grid-3">
-          <div>
-            <label>Názov zákazky</label>
-            <input type="text" id="newProjName" placeholder="Napr. Elektroinštalácia hala Košice" />
+        <div class="no-print">
+          <h2>Zákazky / Stavby HelMcore s.r.o.</h2>
+          <div class="grid-3">
+            <div>
+              <label>Názov zákazky</label>
+              <input type="text" id="newProjName" placeholder="Napr. Elektroinštalácia hala Košice" />
+            </div>
+            <div>
+              <label>Lokalita</label>
+              <input type="text" id="newProjLoc" placeholder="Košice" />
+            </div>
+            <div>
+              <label>Dohodnutá cena / Rozpočet (€ bez DPH)</label>
+              <input type="number" step="1" id="newProjBudget" placeholder="12500" />
+            </div>
           </div>
-          <div>
-            <label>Lokalita</label>
-            <input type="text" id="newProjLoc" placeholder="Košice" />
-          </div>
-          <div>
-            <label>Dohodnutá cena / Rozpočet (€ bez DPH)</label>
-            <input type="number" step="1" id="newProjBudget" placeholder="12500" />
-          </div>
+          <button onclick="addProject()">+ Vytvoriť zákazku</button>
+          <hr style="border: 0; border-top: 1px solid var(--border); margin: 22px 0;" />
         </div>
-        <button onclick="addProject()">+ Vytvoriť zákazku</button>
 
-        <h2 style="margin-top: 24px;">Ekonomika a čistá marža aktívnych stavieb (bez DPH)</h2>
-        <p class="muted" style="margin-bottom: 8px;">Automaticky odpočítava všetky zapísané hodiny montérov (podľa ich sadzieb) aj materiál odpísaný zo skladu.</p>
+        <h2>Ekonomika a čistá marža aktívnych stavieb (bez DPH)</h2>
+        <p class="muted" style="margin-bottom: 8px;">Automaticky odpočítava všetky zapísané hodiny montérov aj materiál odpísaný zo skladu.</p>
         <div style="overflow-x: auto;">
           <table>
             <thead>
@@ -491,7 +540,7 @@
                 <th>Náklad práca</th>
                 <th>Náklad materiál</th>
                 <th>Čistý zisk (Marža)</th>
-                <th>Akcie</th>
+                <th class="no-print">Akcie</th>
               </tr>
             </thead>
             <tbody id="projectsTable"></tbody>
@@ -499,63 +548,71 @@
         </div>
       </div>
 
-      <!-- ZÁLOŽKA 6: OBCHOD / CRM – DOPYTY A CENOVÉ PONUKY (LEN KONATEĽ) -->
+      <!-- ZÁLOŽKA 6: OBCHOD / CRM & REVÍZIE (LEN KONATEĽ) -->
       <div id="tabCRM" class="card hidden admin-only">
-        <h2>💼 Nový dopyt / Cenová ponuka (CRM HelMcore s.r.o.)</h2>
-        <div class="grid-3">
-          <div>
-            <label>Klient / Stavebná firma</label>
-            <input type="text" id="crmClient" placeholder="Napr. Metrostav / Ján Kováč" />
+        <div class="no-print">
+          <h2>💼 Nový dopyt / Cenová ponuka / Revízia (CRM HelMcore s.r.o.)</h2>
+          <div class="grid-3">
+            <div>
+              <label>Klient / Stavebná firma</label>
+              <input type="text" id="crmClient" placeholder="Napr. Metrostav / Ján Kováč" />
+            </div>
+            <div>
+              <label>Telefón / E-mail</label>
+              <input type="text" id="crmContact" placeholder="09xx xxx xxx / mail@firma.sk" />
+            </div>
+            <div>
+              <label>Lokalita stavby</label>
+              <input type="text" id="crmLoc" placeholder="Košice / Prešov..." />
+            </div>
           </div>
-          <div>
-            <label>Telefón / E-mail</label>
-            <input type="text" id="crmContact" placeholder="09xx xxx xxx / mail@firma.sk" />
-          </div>
-          <div>
-            <label>Lokalita stavby</label>
-            <input type="text" id="crmLoc" placeholder="Košice / Prešov..." />
-          </div>
-        </div>
 
-        <div class="grid-4">
-          <div>
-            <label>Typ prác</label>
-            <select id="crmType">
-              <option value="Silnoprúd / Kompletné elektro">Silnoprúd / Kompletné elektro</option>
-              <option value="Fotovoltika (FTV)">Fotovoltika (FTV)</option>
-              <option value="Bleskozvod / HVI">Bleskozvod / HVI</option>
-              <option value="Výroba rozvádzačov">Výroba rozvádzačov</option>
-              <option value="Slaboprúd (EPS/EZS/CCTV/Optika)">Slaboprúd (EPS/EZS/CCTV/Optika)</option>
-              <option value="Smart (AMPIO / DALI)">Smart (AMPIO / DALI)</option>
-              <option value="Revízia (OPAOS) / Prípojka">Revízia (OPAOS) / Prípojka</option>
-            </select>
+          <div class="grid-4">
+            <div>
+              <label>Typ prác</label>
+              <select id="crmType">
+                <option value="Silnoprúd / Kompletné elektro">Silnoprúd / Kompletné elektro</option>
+                <option value="Fotovoltika (FTV)">Fotovoltika (FTV)</option>
+                <option value="Bleskozvod / HVI">Bleskozvod / HVI</option>
+                <option value="Výroba rozvádzačov">Výroba rozvádzačov</option>
+                <option value="Slaboprúd (EPS/EZS/CCTV/Optika)">Slaboprúd (EPS/EZS/CCTV/Optika)</option>
+                <option value="Smart (AMPIO / DALI)">Smart (AMPIO / DALI)</option>
+                <option value="Revízia (OPAOS) / Prípojka">Revízia (OPAOS) / Prípojka</option>
+              </select>
+            </div>
+            <div>
+              <label>Suma CP (€ bez DPH)</label>
+              <input type="number" step="1" id="crmAmount" placeholder="Napr. 8500" />
+            </div>
+            <div>
+              <label>Stav obchodu</label>
+              <select id="crmStatus">
+                <option value="Nový dopyt">Nový dopyt</option>
+                <option value="Obhliadka">Obhliadka</option>
+                <option value="Odoslaná CP">Odoslaná CP</option>
+                <option value="Schválené">Schválené</option>
+                <option value="Zamietnuté">Zamietnuté</option>
+              </select>
+            </div>
+            <div>
+              <label>Pripomenúť obchod dňa</label>
+              <input type="date" id="crmFollowup" />
+            </div>
           </div>
-          <div>
-            <label>Suma CP (€ bez DPH)</label>
-            <input type="number" step="1" id="crmAmount" placeholder="Napr. 8500" />
-          </div>
-          <div>
-            <label>Stav obchodu</label>
-            <select id="crmStatus">
-              <option value="Nový dopyt">Nový dopyt</option>
-              <option value="Obhliadka">Obhliadka</option>
-              <option value="Odoslaná CP">Odoslaná CP</option>
-              <option value="Schválené">Schválené</option>
-              <option value="Zamietnuté">Zamietnuté</option>
-            </select>
-          </div>
-          <div>
-            <label>Pripomenúť dňa (Follow-up)</label>
-            <input type="date" id="crmFollowup" />
-          </div>
-        </div>
 
-        <div>
-          <label>Poznámka / Zdroj (napr. CRZ subdodávka, Web, odporúčanie...)</label>
-          <input type="text" id="crmNotes" placeholder="Napr. Poslaný výkaz výmer, zavolať stavbyvedúcemu v piatok..." />
-        </div>
+          <div class="grid-2">
+            <div>
+              <label>Termín nasledujúcej revízie OPAOS / servisu EPS-EZS (voliteľné)</label>
+              <input type="date" id="crmRevision" />
+            </div>
+            <div>
+              <label>Poznámka / Zdroj (CRZ, Web, odporúčanie...)</label>
+              <input type="text" id="crmNotes" placeholder="Napr. Poslaný výkaz výmer, zavolať v piatok..." />
+            </div>
+          </div>
 
-        <button onclick="addCrmLead()">+ Uložiť dopyt do CRM</button>
+          <button onclick="addCrmLead()">+ Uložiť záznam do CRM</button>
+        </div>
 
         <div class="grid-3" style="margin-top: 22px; margin-bottom: 14px;">
           <div class="stat-box">
@@ -572,7 +629,7 @@
           </div>
         </div>
 
-        <h2>Prehľad všetkých dopytov a cenových ponúk</h2>
+        <h2>Prehľad dopytov, cenových ponúk a budúcich revízií</h2>
         <div style="overflow-x: auto;">
           <table>
             <thead>
@@ -581,9 +638,9 @@
                 <th>Lokalita & Typ</th>
                 <th>Suma CP bez DPH</th>
                 <th>Stav</th>
-                <th>Pripomienka</th>
+                <th>Pripomienka / Revízia</th>
                 <th>Poznámka</th>
-                <th>Akcie</th>
+                <th class="no-print">Akcie</th>
               </tr>
             </thead>
             <tbody id="crmTable"></tbody>
@@ -661,6 +718,26 @@
     let crmCache = [];
     let editingLogId = null;
     let lastCreatedWorker = { email: "", name: "", password: "" };
+    let deferredInstallPrompt = null;
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      document.getElementById("installBtnLogin").classList.remove("hidden");
+      document.getElementById("installBtnTop").classList.remove("hidden");
+    });
+
+    async function installPWA() {
+      if (!deferredInstallPrompt) {
+        alert("V prehliadači ťukni vpravo hore na tri bodky (⋮) a vyber 'Pridať na plochu' / 'Inštalovať aplikáciu'.");
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      document.getElementById("installBtnLogin").classList.add("hidden");
+      document.getElementById("installBtnTop").classList.add("hidden");
+    }
 
     const now = new Date();
     document.getElementById("workDate").valueAsDate = now;
@@ -790,7 +867,8 @@
 tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavieb):
 🔗 Link: ${APP_URL}
 📧 E-mail: ${email}
-🔑 Heslo: ${password}`;
+🔑 Heslo: ${password}
+(Po otvorení si v mobile ťukni na "Do mobilu" pre uloženie ikony na plochu.)`;
 
       document.getElementById("shareText").value = inviteMessage;
       shareBox.classList.remove("hidden");
@@ -865,11 +943,11 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
         const totalVal = (Number(i.quantity) * Number(i.purchase_price_excl_vat)).toFixed(2);
         return `<tr>
           <td><strong>${i.name}</strong></td>
-          <td class="${low ? "low-stock" : "ok-stock"}">${i.quantity} ${i.unit} ${low ? "⚠️" : ""}</td>
+          <td class="${low ? "low-stock" : "ok-stock"}">${i.quantity} ${i.unit} ${low ? "⚠️ Doplniť!" : ""}</td>
           ${isAdmin ? `
             <td>${Number(i.purchase_price_excl_vat).toFixed(2)} €</td>
             <td><strong>${totalVal} €</strong></td>
-            <td>
+            <td class="no-print">
               <button class="btn-sm btn-edit" onclick="editStockItem('${i.id}')">✏️ Upraviť</button>
               <button class="btn-sm btn-del" onclick="deleteStockItem('${i.id}')">🗑️ Zmazať</button>
             </td>
@@ -885,7 +963,6 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       }
     }
 
-    // VÝPOČET MARŽE PRE KAŽDÚ STAVBU (ROZPOČET - PRÁCA - MATERIÁL)
     async function renderProjectMargins() {
       const [{ data: allLogs }, { data: allMat }, { data: profs }] = await Promise.all([
         db.from("work_logs").select("project_id, user_id, hours"),
@@ -921,7 +998,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
           <td style="color:${profitColor}; font-weight:800;">
             ${profit.toFixed(2)} € <span class="muted">(${marginPct} %)</span>
           </td>
-          <td>
+          <td class="no-print">
             <button class="btn-sm btn-edit" onclick="editProjectBudget('${p.id}')">✏️ Rozpočet</button>
             <button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">🗑️</button>
           </td>
@@ -941,7 +1018,6 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       await refreshAll();
     }
 
-    // OBCHOD / CRM FUNKCIE
     async function renderCRM() {
       const { data, error } = await db.from("crm_leads").select("*").order("created_at", { ascending: false });
       if (error) return;
@@ -956,6 +1032,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       document.getElementById("crmWonSum").textContent = `${wonSum.toFixed(2)} €`;
 
       const todayStr = new Date().toISOString().slice(0, 10);
+      const in30Days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
 
       document.getElementById("crmTable").innerHTML = crmCache.map(l => {
         let badgeCls = "badge";
@@ -965,18 +1042,23 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
 
         const isDue = l.next_followup && l.next_followup <= todayStr && !["Schválené", "Zamietnuté"].includes(l.status);
         const followStr = l.next_followup
-          ? `<span style="${isDue ? 'color:var(--red);font-weight:700;' : ''}">${l.next_followup}${isDue ? ' 🔔' : ''}</span>`
-          : "-";
+          ? `<div>Obchod: <span style="${isDue ? 'color:var(--red);font-weight:700;' : ''}">${l.next_followup}${isDue ? ' 🔔' : ''}</span></div>`
+          : "";
+
+        const revSoon = l.next_revision_date && l.next_revision_date <= in30Days;
+        const revStr = l.next_revision_date
+          ? `<div>Revízia: <span style="${revSoon ? 'color:var(--accent);font-weight:700;' : ''}">${l.next_revision_date}${revSoon ? ' ⚡' : ''}</span></div>`
+          : "";
 
         return `<tr>
           <td><strong>${l.client_name}</strong><div class="muted">${l.contact_info || "-"}</div></td>
           <td>${l.location || "-"}<div class="muted">${l.service_type || ""}</div></td>
           <td><strong>${Number(l.quote_amount_excl_vat || 0).toFixed(2)} €</strong></td>
           <td><span class="${badgeCls}">${l.status}</span></td>
-          <td>${followStr}</td>
+          <td>${followStr || revStr ? followStr + revStr : "-"}</td>
           <td>${l.notes || "-"}</td>
-          <td>
-            <button class="btn-sm btn-edit" onclick="editCrmLead('${l.id}')">✏️ Stav / Suma</button>
+          <td class="no-print">
+            <button class="btn-sm btn-edit" onclick="editCrmLead('${l.id}')">✏️ Upraviť</button>
             ${!l.converted_to_project ? `<button class="btn-sm btn-convert" onclick="convertLeadToProject('${l.id}')">🚀 Na stavbu</button>` : `<span class="muted">✔ V stavbách</span>`}
             <button class="btn-sm btn-del" onclick="deleteCrmLead('${l.id}')">🗑️</button>
           </td>
@@ -992,12 +1074,13 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       const quote_amount_excl_vat = Number(String(document.getElementById("crmAmount").value).replace(",", ".")) || 0;
       const status = document.getElementById("crmStatus").value;
       const next_followup = document.getElementById("crmFollowup").value || null;
+      const next_revision_date = document.getElementById("crmRevision").value || null;
       const notes = document.getElementById("crmNotes").value.trim();
 
       if (!client_name) return alert("Zadaj aspoň meno klienta alebo názov firmy.");
 
       const { error } = await db.from("crm_leads").insert({
-        client_name, contact_info, location, service_type, quote_amount_excl_vat, status, next_followup, notes
+        client_name, contact_info, location, service_type, quote_amount_excl_vat, status, next_followup, next_revision_date, notes
       });
       if (error) return alert("Chyba pri ukladaní do CRM: " + error.message);
 
@@ -1006,6 +1089,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       document.getElementById("crmLoc").value = "";
       document.getElementById("crmAmount").value = "";
       document.getElementById("crmFollowup").value = "";
+      document.getElementById("crmRevision").value = "";
       document.getElementById("crmNotes").value = "";
       await renderCRM();
     }
@@ -1015,7 +1099,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       if (!lead) return;
 
       const newStatus = prompt(
-        `Nový stav pre "${lead.client_name}" (napíš: Nový dopyt / Obhliadka / Odoslaná CP / Schválené / Zamietnuté):`,
+        `Nový stav pre "${lead.client_name}" (Nový dopyt / Obhliadka / Odoslaná CP / Schválené / Zamietnuté):`,
         lead.status
       );
       if (newStatus === null) return;
@@ -1023,12 +1107,16 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       const newAmt = prompt("Suma cenovej ponuky (€ bez DPH):", lead.quote_amount_excl_vat || 0);
       if (newAmt === null) return;
 
+      const newRev = prompt("Dátum nasledujúcej revízie RRRR-MM-DD (alebo nechaj prázdne):", lead.next_revision_date || "");
+      if (newRev === null) return;
+
       const newNotes = prompt("Poznámka:", lead.notes || "");
       if (newNotes === null) return;
 
       const { error } = await db.from("crm_leads").update({
         status: newStatus.trim() || lead.status,
         quote_amount_excl_vat: Number(String(newAmt).replace(",", ".")) || 0,
+        next_revision_date: newRev.trim() || null,
         notes: newNotes.trim()
       }).eq("id", id);
 
@@ -1134,7 +1222,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
           <td>${days}</td>
           <td><strong>${hrs.toFixed(2)} h</strong></td>
           <td style="color: var(--accent); font-weight: 800; font-size: 1rem;">${sum.toFixed(2)} €</td>
-          <td>
+          <td class="no-print">
             <button class="btn-sm btn-edit" onclick="editPerson('${p.id}')">✏️ Sadzba / Meno</button>
             ${!isSelf ? `<button class="btn-sm btn-del" onclick="deleteWorker('${p.id}')">🗑️ Zmazať montéra</button>` : ""}
           </td>
@@ -1152,7 +1240,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
           <td>${timeStr}</td>
           <td><strong>${Number(l.hours).toFixed(2)} h</strong></td>
           <td>${l.note || ""}</td>
-          <td>
+          <td class="no-print">
             <button class="btn-sm btn-edit" onclick="openEditLogModal('${l.id}')">✏️ Upraviť</button>
             <button class="btn-sm btn-del" onclick="deleteWorkLog('${l.id}')">🗑️</button>
           </td>
@@ -1295,7 +1383,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       if (error) return alert("Chyba: " + error.message);
 
       document.getElementById("useQty").value = "";
-      document.getElementById("matMsg").textContent = "✅ Materiál odpísaný zo skladu.";
+      document.getElementById("matMsg").textContent = "✅ Materiál odpísaný na stavbu a automaticky odpočítaný zo skladu.";
       await refreshAll();
     }
 
