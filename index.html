@@ -137,6 +137,24 @@
       border-radius: 8px;
       padding: 12px;
     }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 999;
+    }
+    .modal-card {
+      background: var(--card);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 520px;
+    }
     .msg { margin-top: 10px; font-size: 0.9rem; color: var(--green); }
     .err { margin-top: 10px; font-size: 0.9rem; color: var(--red); }
   </style>
@@ -224,6 +242,7 @@
         </div>
 
         <button onclick="saveWorkLog()">Uložiť dochádzku dňa</button>
+        <p class="muted" style="margin-top:8px;">Poznámka: Po uložení môže záznam upraviť alebo vymazať iba konateľ.</p>
         <div id="workMsg" class="msg"></div>
 
         <hr style="border: 0; border-top: 1px solid var(--border); margin: 22px 0;" />
@@ -270,7 +289,7 @@
           </div>
         </div>
 
-        <h2>Denný rozpis dochádzky za vybraný mesiac</h2>
+        <h2>Denný rozpis dochádzky za vybraný mesiac (iba na čítanie)</h2>
         <div style="overflow-x: auto;">
           <table>
             <thead>
@@ -340,7 +359,7 @@
         </div>
       </div>
 
-      <!-- ZÁLOŽKA 4: ĽUDIA, PRIDANIE MONTÉRA S HESLOM A FAKTÚRY (LEN KONATEĽ) -->
+      <!-- ZÁLOŽKA 4: ĽUDIA, PRIDANIE / MAZANIE MONTÉROV A ÚPRAVA DOCHÁDZKY (LEN KONATEĽ) -->
       <div id="tabPeople" class="card hidden admin-only">
         <div class="invite-box">
           <h2>➕ Pridať nového montéra (okamžitý prístup s heslom)</h2>
@@ -373,7 +392,6 @@
           <div id="invMsg" class="msg"></div>
           <div id="invErr" class="err"></div>
 
-          <!-- KARTA NA RÝCHLE ODOSLANIE ÚDAJOV CEZ WHATSAPP / EMAIL -->
           <div id="shareBox" class="share-card hidden">
             <div style="font-weight:700; color:var(--green); margin-bottom:6px;">✅ Účet montéra je vytvorený a pripravený! Pošli mu prístup:</div>
             <textarea id="shareText" rows="5" readonly style="font-size:0.86rem; margin-bottom:8px;"></textarea>
@@ -401,14 +419,14 @@
                 <th>Odprac. dni</th>
                 <th>Čisté hodiny</th>
                 <th>Výsledná suma na FA</th>
-                <th>Nastavenia</th>
+                <th>Správa (iba Konateľ)</th>
               </tr>
             </thead>
             <tbody id="peoplePayoutTable"></tbody>
           </table>
         </div>
 
-        <h2>Všetky zápisy dochádzky za vybraný mesiac</h2>
+        <h2>Všetky zápisy dochádzky za vybraný mesiac (oprava chýb montérov)</h2>
         <div style="overflow-x: auto;">
           <table>
             <thead>
@@ -419,7 +437,7 @@
                 <th>Čas (Obed)</th>
                 <th>Čisté hod.</th>
                 <th>Poznámka</th>
-                <th>Akcie</th>
+                <th>Akcie (iba Konateľ)</th>
               </tr>
             </thead>
             <tbody id="adminLogsTable"></tbody>
@@ -464,6 +482,59 @@
     </div>
   </div>
 
+  <!-- MODÁLNE OKNO PRE KONATEĽA NA ÚPRAVU DOCHÁDZKY (DÁTUM, ČASY, OBED, STAVBA) -->
+  <div id="editLogModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h2>✏️ Upraviť zápis dochádzky</h2>
+      <p class="muted" id="editLogWorkerName" style="margin-bottom: 8px;"></p>
+
+      <div class="grid-2">
+        <div>
+          <label>Dátum</label>
+          <input type="date" id="editLogDate" />
+        </div>
+        <div>
+          <label>Stavba / Zákazka</label>
+          <select id="editLogProject"></select>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div>
+          <label>Príchod</label>
+          <input type="time" id="editLogArrival" oninput="recalcEditModalPreview()" />
+        </div>
+        <div>
+          <label>Odchod</label>
+          <input type="time" id="editLogDeparture" oninput="recalcEditModalPreview()" />
+        </div>
+        <div>
+          <label>Obed / prestávka</label>
+          <select id="editLogLunch" onchange="recalcEditModalPreview()">
+            <option value="0">Bez obeda (0 min)</option>
+            <option value="30">30 min</option>
+            <option value="45">45 min</option>
+            <option value="60">60 min</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label>Poznámka k práci</label>
+        <input type="text" id="editLogNote" />
+      </div>
+
+      <div id="editLogPreview" class="calc-preview">
+        Prepočítané čisté hodiny: <strong>0.00 h</strong>
+      </div>
+
+      <div class="grid-2" style="margin-top: 14px;">
+        <button style="margin-top:0;" onclick="saveEditedWorkLog()">💾 Uložiť zmeny</button>
+        <button class="secondary" style="width:100%; padding:11px;" onclick="closeEditLogModal()">Zrušiť</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const SUPABASE_URL = "https://jjelnisgvhvrpmjwrkvg.supabase.co";
     const SUPABASE_KEY = "sb_publishable_0icBVPmygHxCt7MZLvZMWQ_vxXLVtxT";
@@ -474,6 +545,9 @@
     let currentProfile = null;
     let stockCache = [];
     let profilesCache = [];
+    let projectsCache = [];
+    let adminLogsCache = [];
+    let editingLogId = null;
     let lastCreatedWorker = { email: "", name: "", password: "" };
 
     const now = new Date();
@@ -524,7 +598,7 @@
 
       const { data, error } = await db.auth.signInWithPassword({ email, password });
       if (error) {
-        document.getElementById("loginErr").textContent = "Nesprávny e-mail alebo heslo (prípadne ešte nie je vypnuté Confirm email v Supabase).";
+        document.getElementById("loginErr").textContent = "Nesprávny e-mail alebo heslo.";
         return;
       }
       currentUser = data.user;
@@ -567,7 +641,6 @@
         return;
       }
 
-      // 1. Zapíšeme údaje do worker_invites, aby trigger automaticky nastavil meno a sadzbu
       const { error: invErr } = await db.from("worker_invites").upsert({
         email, full_name, hourly_rate
       });
@@ -576,7 +649,6 @@
         return;
       }
 
-      // 2. Vytvoríme účet s heslom cez izolovaného klienta (aby neodhlásilo Konateľa)
       const tempClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
       });
@@ -591,7 +663,6 @@
         return;
       }
 
-      // Poistka: ak už profil existoval, aktualizujeme mu meno a sadzbu priamo
       if (data?.user?.id) {
         await db.from("profiles").upsert({
           id: data.user.id,
@@ -622,7 +693,7 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
     function copyCredentials() {
       const txt = document.getElementById("shareText").value;
       navigator.clipboard.writeText(txt);
-      alert("✅ Skopírované! Teraz to len vlož (Ctrl+V / Podržať a Prilepiť) montérovi do WhatsAppu alebo SMS.");
+      alert("✅ Skopírované! Teraz to len vlož montérovi do WhatsAppu alebo SMS.");
     }
 
     function openMailClient() {
@@ -667,11 +738,13 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       const isAdmin = currentProfile.role === "admin";
 
       const { data: projects } = await db.from("projects").select("*").eq("status", "active").order("created_at", { ascending: false });
-      const projSel = document.getElementById("workProject");
-      projSel.innerHTML = (projects || []).map(p => `<option value="${p.id}">${p.name} (${p.location || ""})</option>`).join("");
+      projectsCache = projects || [];
+      const projOptions = projectsCache.map(p => `<option value="${p.id}">${p.name} (${p.location || ""})</option>`).join("");
+      document.getElementById("workProject").innerHTML = projOptions;
+      document.getElementById("editLogProject").innerHTML = projOptions;
 
       if (isAdmin) {
-        document.getElementById("projectsTable").innerHTML = (projects || []).map(p => `<tr>
+        document.getElementById("projectsTable").innerHTML = projectsCache.map(p => `<tr>
           <td><strong>${p.name}</strong></td>
           <td>${p.location || "-"}</td>
           <td>${Number(p.budget_excl_vat || 0).toFixed(2)} €</td>
@@ -756,19 +829,20 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       profilesCache = profs || [];
 
       const { data: logs } = await db.from("work_logs")
-        .select("id, user_id, work_date, arrival_time, departure_time, lunch_minutes, hours, note, profiles(full_name), projects(name)")
+        .select("id, user_id, project_id, work_date, arrival_time, departure_time, lunch_minutes, hours, note, profiles(full_name), projects(name)")
         .gte("work_date", start)
         .lte("work_date", end)
         .order("work_date", { ascending: false });
 
-      const allLogs = logs || [];
+      adminLogsCache = logs || [];
 
       document.getElementById("peoplePayoutTable").innerHTML = profilesCache.map(p => {
-        const pLogs = allLogs.filter(l => l.user_id === p.id);
+        const pLogs = adminLogsCache.filter(l => l.user_id === p.id);
         const days = new Set(pLogs.map(l => l.work_date)).size;
         const hrs = pLogs.reduce((s, l) => s + Number(l.hours || 0), 0);
         const rate = Number(p.hourly_rate || 0);
         const sum = hrs * rate;
+        const isSelf = p.id === currentUser.id;
         return `<tr>
           <td><strong>${p.full_name || "Bez mena"}</strong></td>
           <td>${p.role === "admin" ? "Konateľ" : "Montér"}</td>
@@ -778,11 +852,12 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
           <td style="color: var(--accent); font-weight: 800; font-size: 1rem;">${sum.toFixed(2)} €</td>
           <td>
             <button class="btn-sm btn-edit" onclick="editPerson('${p.id}')">✏️ Sadzba / Meno</button>
+            ${!isSelf ? `<button class="btn-sm btn-del" onclick="deleteWorker('${p.id}')">🗑️ Zmazať montéra</button>` : ""}
           </td>
         </tr>`;
       }).join("");
 
-      document.getElementById("adminLogsTable").innerHTML = allLogs.map(l => {
+      document.getElementById("adminLogsTable").innerHTML = adminLogsCache.map(l => {
         const timeStr = l.arrival_time && l.departure_time
           ? `${l.arrival_time.slice(0,5)}–${l.departure_time.slice(0,5)} (${l.lunch_minutes || 0}m)`
           : "-";
@@ -793,7 +868,10 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
           <td>${timeStr}</td>
           <td><strong>${Number(l.hours).toFixed(2)} h</strong></td>
           <td>${l.note || ""}</td>
-          <td><button class="btn-sm btn-del" onclick="deleteWorkLog('${l.id}')">🗑️</button></td>
+          <td>
+            <button class="btn-sm btn-edit" onclick="openEditLogModal('${l.id}')">✏️ Upraviť</button>
+            <button class="btn-sm btn-del" onclick="deleteWorkLog('${l.id}')">🗑️</button>
+          </td>
         </tr>`;
       }).join("") || `<tr><td colspan="7" class="muted">Žiadne zápisy v tomto mesiaci.</td></tr>`;
     }
@@ -816,6 +894,80 @@ tu je prístup do firemnej aplikácie HelMcore s.r.o. (zápis dochádzky a stavi
       if (error) return alert("Chyba pri ukladaní: " + error.message);
       await refreshAll();
       recalcPreview();
+    }
+
+    async function deleteWorker(id) {
+      const p = profilesCache.find(x => x.id === id);
+      const name = p?.full_name || "tohto montéra";
+      if (!confirm(`Naozaj chceš natrvalo vymazať účet montéra "${name}" vrátane jeho prístupu a zápisov?`)) return;
+
+      const { error } = await db.rpc("admin_delete_worker", { target_user_id: id });
+      if (error) return alert("Chyba pri mazaní montéra: " + error.message);
+
+      await refreshAll();
+    }
+
+    function openEditLogModal(logId) {
+      const log = adminLogsCache.find(x => x.id === logId);
+      if (!log) return;
+
+      editingLogId = logId;
+      document.getElementById("editLogWorkerName").textContent = `Pracovník: ${log.profiles?.full_name || "-"}`;
+      document.getElementById("editLogDate").value = log.work_date || "";
+      if (log.project_id) {
+        document.getElementById("editLogProject").value = log.project_id;
+      }
+      document.getElementById("editLogArrival").value = log.arrival_time ? log.arrival_time.slice(0, 5) : "07:00";
+      document.getElementById("editLogDeparture").value = log.departure_time ? log.departure_time.slice(0, 5) : "15:30";
+      document.getElementById("editLogLunch").value = String(log.lunch_minutes ?? 30);
+      document.getElementById("editLogNote").value = log.note || "";
+
+      recalcEditModalPreview();
+      document.getElementById("editLogModal").classList.remove("hidden");
+    }
+
+    function closeEditLogModal() {
+      editingLogId = null;
+      document.getElementById("editLogModal").classList.add("hidden");
+    }
+
+    function recalcEditModalPreview() {
+      const arr = document.getElementById("editLogArrival").value;
+      const dep = document.getElementById("editLogDeparture").value;
+      const lunch = Number(document.getElementById("editLogLunch").value || 0);
+      const net = calcNetHours(arr, dep, lunch);
+      document.getElementById("editLogPreview").innerHTML =
+        `Prepočítané čisté hodiny: <strong>${net.toFixed(2)} h</strong> (prestávka ${lunch} min)`;
+    }
+
+    async function saveEditedWorkLog() {
+      if (!editingLogId) return;
+
+      const work_date = document.getElementById("editLogDate").value;
+      const project_id = document.getElementById("editLogProject").value;
+      const arrival_time = document.getElementById("editLogArrival").value;
+      const departure_time = document.getElementById("editLogDeparture").value;
+      const lunch_minutes = Number(document.getElementById("editLogLunch").value || 0);
+      const hours = calcNetHours(arrival_time, departure_time, lunch_minutes);
+      const note = document.getElementById("editLogNote").value.trim();
+
+      if (!work_date || !project_id) return alert("Vyber dátum aj stavbu.");
+      if (hours <= 0) return alert("Skontroluj čas príchodu, odchodu a obed – čisté hodiny musia byť viac ako 0.");
+
+      const { error } = await db.from("work_logs").update({
+        work_date,
+        project_id,
+        arrival_time,
+        departure_time,
+        lunch_minutes,
+        hours,
+        note
+      }).eq("id", editingLogId);
+
+      if (error) return alert("Chyba pri ukladaní úpravy: " + error.message);
+
+      closeEditLogModal();
+      await refreshAll();
     }
 
     async function saveWorkLog() {
